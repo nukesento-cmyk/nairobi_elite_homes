@@ -2,14 +2,14 @@ import { Check } from "lucide-react";
 import type { Metadata } from "next";
 
 import { JoinLink } from "@/components/marketing/JoinLink";
+import { LeadForm } from "@/components/marketing/LeadForm";
 import { SocialProofLine } from "@/components/marketing/SocialProofLine";
 import { SpotsProgress } from "@/components/marketing/SpotsProgress";
 import { WhyJoinCards } from "@/components/marketing/WhyJoinCards";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
-import { testimonials } from "@/content/testimonials";
-import { whyJoinCards } from "@/content/why-join";
+import { getTestimonials, getWhyJoinCards } from "@/lib/cms";
 
 const copy = getCommunityCopy(site);
 
@@ -18,8 +18,9 @@ export const metadata: Metadata = {
   description: copy.join.subhead,
 };
 
-export default function JoinPage() {
+export default async function JoinPage() {
   const { join, cta } = copy;
+  const [cards, testimonials] = await Promise.all([getWhyJoinCards(), getTestimonials()]);
 
   return (
     <>
@@ -69,7 +70,7 @@ export default function JoinPage() {
           <h2 id="problems" className="mb-10 max-w-2xl text-4xl text-bone-50 md:text-5xl">
             The problems it solves
           </h2>
-          <WhyJoinCards cards={whyJoinCards} sourcePrefix="join" placement="join_why_join" />
+          <WhyJoinCards cards={cards} sourcePrefix="join" placement="join_why_join" />
         </div>
       </section>
 
@@ -94,6 +95,16 @@ export default function JoinPage() {
           </div>
         </section>
       )}
+
+      <section aria-labelledby="lead-form" className="pb-section">
+        <div className="mx-auto max-w-xl px-4 sm:px-6">
+          <h2 id="lead-form" className="text-4xl text-bone-50 md:text-5xl">
+            Rather talk first?
+          </h2>
+          <p className="mt-3 text-bone-200">Tell us what you&apos;re looking for and we&apos;ll get back to you.</p>
+          <LeadForm source="join_page" />
+        </div>
+      </section>
 
       <section className="grain relative bg-forest-900 py-section">
         <div className="relative mx-auto flex max-w-7xl flex-col items-start gap-8 px-4 sm:px-6">

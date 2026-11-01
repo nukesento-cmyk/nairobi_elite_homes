@@ -4,6 +4,7 @@ export type CommunityStatus = (typeof COMMUNITY_STATUSES)[number];
 type RawValue = string | undefined;
 
 export type RawSiteEnv = {
+  siteUrl: RawValue;
   whatsappGroupUrl: RawValue;
   whatsappDirectUrl: RawValue;
   communityStatus: RawValue;
@@ -24,6 +25,7 @@ export type RawSiteEnv = {
 
 export type SiteConfig = {
   name: string;
+  url: string | null;
   whatsapp: { groupUrl: string; directUrl: string };
   community: {
     status: CommunityStatus;
@@ -95,6 +97,7 @@ export function parseSiteConfig(env: RawSiteEnv): SiteConfig {
 
   return {
     name: "NairobiEliteHomes",
+    url: optional(env.siteUrl) ? parseUrl("NEXT_PUBLIC_SITE_URL", optional(env.siteUrl)!) : null,
     whatsapp: {
       groupUrl: requiredUrl("NEXT_PUBLIC_WHATSAPP_GROUP_URL", env.whatsappGroupUrl),
       directUrl: requiredUrl("NEXT_PUBLIC_WHATSAPP_DIRECT_URL", env.whatsappDirectUrl),
@@ -120,6 +123,7 @@ export function parseSiteConfig(env: RawSiteEnv): SiteConfig {
 // Each variable is named in full because Next.js only inlines static
 // process.env.NEXT_PUBLIC_* lookups into the browser bundle.
 export const site = parseSiteConfig({
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
   whatsappGroupUrl: process.env.NEXT_PUBLIC_WHATSAPP_GROUP_URL,
   whatsappDirectUrl: process.env.NEXT_PUBLIC_WHATSAPP_DIRECT_URL,
   communityStatus: process.env.NEXT_PUBLIC_COMMUNITY_STATUS,

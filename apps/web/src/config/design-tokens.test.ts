@@ -34,7 +34,13 @@ describe("source guards", () => {
     expect(readFileSync(file, "utf8")).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
-  it.each([...uiFiles, ...sourceFiles("lib"), ...sourceFiles("config")])(
+  // Fixed third-party protocol addresses, not links marketing would ever change.
+  const urlExempt = ["lib/turnstile.ts", "lib/json-ld.ts"];
+  const linkFiles = [...uiFiles, ...sourceFiles("lib"), ...sourceFiles("config")].filter(
+    (file) => !urlExempt.some((exempt) => file.endsWith(exempt)),
+  );
+
+  it.each(linkFiles)(
     "%s has no hardcoded URLs",
     (file) => {
       expect(readFileSync(file, "utf8")).not.toMatch(/https?:\/\//);

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseSiteConfig, type RawSiteEnv } from "./site";
 
 const baseEnv: RawSiteEnv = {
+  siteUrl: undefined,
   whatsappGroupUrl: "https://chat.whatsapp.com/ABC",
   whatsappDirectUrl: "https://wa.me/254700000000",
   communityStatus: "founding",

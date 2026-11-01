@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
@@ -26,8 +28,8 @@ export function HomeHero() {
           >
             {copy.cta.long}
           </JoinLink>
-          <a
-            href="#listings"
+          <Link
+            href="/homes"
             className={buttonVariants({
               variant: "outline",
               size: "cta-lg",
@@ -35,7 +37,7 @@ export function HomeHero() {
             })}
           >
             Browse listings
-          </a>
+          </Link>
         </div>
         <div className="mt-8">
           <SocialProofLine />

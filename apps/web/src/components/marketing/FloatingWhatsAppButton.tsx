@@ -1,4 +1,7 @@
+"use client";
+
 import { MessageCircle } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
@@ -7,6 +10,9 @@ import { JoinLink } from "./JoinLink";
 
 export function FloatingWhatsAppButton() {
   const { cta } = getCommunityCopy(site);
+
+  // Listing pages have their own fixed bar on phones.
+  if (usePathname()?.startsWith("/listings/")) return null;
 
   return (
     <JoinLink

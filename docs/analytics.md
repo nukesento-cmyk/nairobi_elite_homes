@@ -8,6 +8,11 @@ All events go through `track()` in `apps/web/src/lib/analytics.ts`. **No provide
 |---|---|---|
 | `join_click` | `source`, `placement` | Any join CTA is clicked |
 | `community_status_viewed` | `status` | A marketing page loads, carrying the current community status |
+| `view_listing` | `listingId` | A listing page opens |
+| `filter_used` | `filter` | A listing filter changes |
+| `gallery_opened` | `listingId` | A listing photo is opened |
+| `lead_submitted` | `source` | The lead form is accepted |
+| `exit_modal_shown`, `exit_modal_dismissed`, `exit_modal_clicked` | none | Exit-intent modal, desktop only, once per session |
 
 ### `join_click` sources
 
@@ -20,16 +25,10 @@ All events go through `track()` in `apps/web/src/lib/analytics.ts`. **No provide
 | `hero` | `home_hero` | Homepage hero, primary button |
 | `home_first_look`, `home_verified`, `home_land_safety`, `home_owner_contact` | `home_why_join` | Homepage "why join" cards |
 | `interstitial` | `listing_grid` | Card inside the listing grid |
+| `teaser_card` | `listing_grid` | Locked off-market card |
+| `listing_detail` | `listing_detail` | Listing page, gated location panel |
+| `listing_bar`, `listing_bar_whatsapp` | `listing_detail` | Listing page, mobile bar |
+| `exit_modal` | `exit_modal` | Exit-intent modal |
 | `join_page` | `join_hero` | `/join`, main button |
 | `join_page_closing` | `join_closing` | `/join`, closing button |
 | `join_first_look`, `join_verified`, `join_land_safety`, `join_owner_contact`, `join_price_checks`, `join_network` | `join_why_join` | `/join` problem cards |
-
-## Defined for later sprints
-
-| Event | Properties |
-|---|---|
-| `view_listing` | `listingId` |
-| `filter_used` | `filter` |
-| `gallery_opened` | `listingId` |
-| `exit_modal_shown`, `exit_modal_dismissed`, `exit_modal_clicked` | none |
-| `lead_submitted` | `source` |

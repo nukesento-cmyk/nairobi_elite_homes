@@ -5,6 +5,7 @@ import { parseSiteConfig, type RawSiteEnv } from "@/config/site";
 import { getCommunityCopy, getSocialProofItems } from "./community";
 
 const baseEnv: RawSiteEnv = {
+  siteUrl: undefined,
   whatsappGroupUrl: "https://chat.whatsapp.com/ABC",
   whatsappDirectUrl: "https://wa.me/254700000000",
   communityStatus: "founding",
@@ -77,7 +78,15 @@ describe("join page copy", () => {
   it("only calls joining free in founding", () => {
     for (const communityStatus of ["paid", "waitlist"]) {
       const copy = copyFor({ communityStatus });
-      const text = [copy.heroAccess, copy.join.subhead, copy.join.offerBody, copy.cta.long].join(" ");
+      const text = [
+        copy.heroAccess,
+        copy.join.subhead,
+        copy.join.offerBody,
+        copy.cta.long,
+        copy.listingGate.body,
+        copy.listingGate.cta,
+        copy.exitModal.body,
+      ].join(" ");
       expect(text).not.toMatch(/\bfree\b/i);
     }
   });
@@ -111,5 +120,12 @@ describe("social proof", () => {
 
   it("shows nothing when no figures are set", () => {
     expect(itemsFor({ memberCount: "", offMarketCount: "" })).toEqual([]);
+  });
+});
+
+describe("exit modal copy", () => {
+  it("states the cap only when it's set", () => {
+    expect(copyFor({}).exitModal.body).toContain("1,500 members");
+    expect(copyFor({ cap: "" }).exitModal.body).not.toMatch(/\d/);
   });
 });

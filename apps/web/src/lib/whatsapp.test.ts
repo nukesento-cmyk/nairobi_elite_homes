@@ -6,6 +6,7 @@ import { communityLink, joinLink } from "./whatsapp";
 
 function configFor(communityStatus: CommunityStatus): SiteConfig {
   return parseSiteConfig({
+    siteUrl: undefined,
     whatsappGroupUrl: "https://chat.whatsapp.com/ABC",
     whatsappDirectUrl: "https://wa.me/254700000000",
     communityStatus,

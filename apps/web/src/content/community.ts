@@ -15,6 +15,8 @@ export type CommunityCopy = {
   /** Prefilled message when the CTA opens a direct chat instead of the group. */
   directMessage: string;
   heroAccess: string;
+  listingGate: { title: string; body: string; cta: string };
+  exitModal: { title: string; body: string };
   join: {
     badge: string;
     headline: string;
@@ -69,6 +71,17 @@ export function getCommunityCopy({ community }: SiteConfig): CommunityCopy {
         cta: { short: "Join free", long: "Join the private community" },
         directMessage: "Hi, I'd like to join the NairobiEliteHomes community.",
         heroAccess: "Joining is free today. Soon it becomes paid and members-only.",
+        listingGate: {
+          title: "Exact location and owner contact",
+          body: "These are shared in the private group. Join (free) to request a viewing.",
+          cta: "Join free to request a viewing",
+        },
+        exitModal: {
+          title: "Before you go",
+          body: community.cap
+            ? `Founding access closes at ${community.cap.toLocaleString("en-US")} members. Grab your free spot.`
+            : "Founding access won't stay open for long. Grab your free spot.",
+        },
         join: {
           badge: "Founding access open",
           headline: "Join before the door closes.",
@@ -98,6 +111,15 @@ export function getCommunityCopy({ community }: SiteConfig): CommunityCopy {
         cta: { short: "Become a member", long: "Become a member" },
         directMessage: "Hi, I'd like to become a NairobiEliteHomes member.",
         heroAccess: paidPrice ? `Membership is ${paidPrice}.` : "Membership is by monthly subscription.",
+        listingGate: {
+          title: "Exact location and owner contact",
+          body: "These are shared with members. Become a member to request a viewing.",
+          cta: "Become a member",
+        },
+        exitModal: {
+          title: "Before you go",
+          body: "Members see off-market homes and land before anyone else.",
+        },
         join: {
           badge: "Members only",
           headline: "Get inside Nairobi's private property network.",
@@ -124,6 +146,15 @@ export function getCommunityCopy({ community }: SiteConfig): CommunityCopy {
         cta: { short: "Join waitlist", long: "Join the waitlist" },
         directMessage: "Hi, I'd like to join the NairobiEliteHomes waitlist.",
         heroAccess: "Founding spots are full. The waitlist is open.",
+        listingGate: {
+          title: "Exact location and owner contact",
+          body: "These are shared with members. Join the waitlist to get in line.",
+          cta: "Join the waitlist",
+        },
+        exitModal: {
+          title: "Before you go",
+          body: "Founding spots are full, but you can still get in line for the next opening.",
+        },
         join: {
           badge: "Waitlist open",
           headline: "Founding spots are full.",

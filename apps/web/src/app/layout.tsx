@@ -23,6 +23,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: site.url ? new URL(site.url) : undefined,
   title: { default: site.name, template: `%s | ${site.name}` },
   description:
     "A private community for serious buyers, renters, sellers and landowners in Nairobi's premium areas.",

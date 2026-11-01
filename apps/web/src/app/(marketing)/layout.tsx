@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { CommunityStatusBeacon } from "@/components/marketing/CommunityStatusBeacon";
+import { ExitIntentModal } from "@/components/marketing/ExitIntentModal";
 import { FloatingWhatsAppButton } from "@/components/marketing/FloatingWhatsAppButton";
 import { SiteFooter } from "@/components/marketing/SiteFooter";
 import { SiteHeader } from "@/components/marketing/SiteHeader";
@@ -22,6 +23,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
       </main>
       <SiteFooter />
       <FloatingWhatsAppButton />
+      <ExitIntentModal />
       <CommunityStatusBeacon />
     </>
   );

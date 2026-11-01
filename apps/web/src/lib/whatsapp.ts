@@ -14,6 +14,12 @@ export function communityLink(
   return url.toString();
 }
 
+export function directChatLink(message: string, config: SiteConfig = site): string {
+  const url = new URL(config.whatsapp.directUrl);
+  url.searchParams.set("text", message);
+  return url.toString();
+}
+
 /**
  * Where a join CTA goes for the current community status. Only `founding` gets
  * the group invite: in `paid` and `waitlist` that link would let people skip
@@ -30,7 +36,5 @@ export function joinLink(
   }
   if (!onJoinPage) return "/join";
 
-  const url = new URL(config.whatsapp.directUrl);
-  url.searchParams.set("text", getCommunityCopy(config).directMessage);
-  return url.toString();
+  return directChatLink(getCommunityCopy(config).directMessage, config);
 }
