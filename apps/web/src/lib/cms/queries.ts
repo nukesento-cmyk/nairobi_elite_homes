@@ -42,7 +42,8 @@ export const listingDetailQuery = `*[${PUBLISHED_LISTING} && status == "public" 
   "features": coalesce(features, []),
   "gallery": coalesce(media.gallery[]${IMAGE}, []),
   "subArea": select(location.isExactPublic == true => location.subArea, null),
-  "coords": select(location.isExactPublic == true => location.coords{lat, lng}, null)
+  "coords": select(location.isExactPublic == true => location.coords{lat, lng}, null),
+  "matterportId": media.matterportId
 }`;
 
 export const publicSlugsQuery = `*[${PUBLISHED_LISTING} && status == "public"].slug.current`;
@@ -63,3 +64,12 @@ export const communitySettingsQuery = `*[_id == "communitySettings"][0] {
 }`;
 
 export const joinPageQuery = `*[_id == "joinPage"][0][$status]`;
+
+const SCENE = `{url, title, "poster": poster${IMAGE}}`;
+
+export const siteMediaQuery = `*[_id == "siteMedia"][0] {
+  "heroExterior": heroExterior${IMAGE},
+  "heroInterior": heroInterior${IMAGE},
+  "homesScene": homesScene${SCENE},
+  "landScene": landScene${SCENE}
+}`;

@@ -1,5 +1,6 @@
 import { Clock, MapPinned, Phone, Scale, ShieldCheck, Users, type LucideIcon } from "lucide-react";
 
+import { ScrollReveal } from "@/components/motion/ScrollReveal";
 import type { WhyJoinCard, WhyJoinIcon } from "@/content/why-join";
 
 import { JoinLink } from "./JoinLink";
@@ -22,7 +23,7 @@ type WhyJoinCardsProps = {
 
 export function WhyJoinCards({ cards, sourcePrefix, placement }: WhyJoinCardsProps) {
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 lg:gap-6">
+    <ScrollReveal as="ul" className="grid gap-4 sm:grid-cols-2 lg:gap-6">
       {cards.map((card) => {
         const Icon = icons[card.icon];
         return (
@@ -44,6 +45,6 @@ export function WhyJoinCards({ cards, sourcePrefix, placement }: WhyJoinCardsPro
           </li>
         );
       })}
-    </ul>
+    </ScrollReveal>
   );
 }

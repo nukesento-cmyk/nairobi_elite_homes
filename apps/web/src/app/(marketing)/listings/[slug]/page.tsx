@@ -9,11 +9,13 @@ import { JoinLink } from "@/components/marketing/JoinLink";
 import { LeadForm } from "@/components/marketing/LeadForm";
 import { ListingActionBar } from "@/components/property/ListingActionBar";
 import { ListingBeacon } from "@/components/property/ListingBeacon";
+import { MatterportTour } from "@/components/property/MatterportTour";
 import { PropertyGallery } from "@/components/property/PropertyGallery";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
 import { getCommunities, getListing, getPublicSlugs } from "@/lib/cms";
+import { matterportEmbedUrl } from "@/lib/embeds";
 import { listingJsonLd } from "@/lib/json-ld";
 import { formatPrice, formatSpecs } from "@/lib/listings";
 
@@ -69,6 +71,7 @@ async function ListingContent({ params }: ListingPageProps) {
   const { listingGate } = getCommunityCopy(site);
   const community = (await getCommunities()).find(({ name }) => name === listing.area);
   const specs = formatSpecs(listing.specs);
+  const tourUrl = matterportEmbedUrl(listing.matterportId);
   const facts = [
     listing.specs.titleStatus && `Title: ${listing.specs.titleStatus}`,
     listing.specs.zoning && `Zoning: ${listing.specs.zoning}`,
@@ -88,7 +91,7 @@ async function ListingContent({ params }: ListingPageProps) {
             src={listing.hero.url}
             alt={listing.hero.alt}
             fill
-            priority
+            preload
             sizes="100vw"
             placeholder={listing.hero.lqip ? "blur" : "empty"}
             blurDataURL={listing.hero.lqip ?? undefined}
@@ -139,6 +142,18 @@ async function ListingContent({ params }: ListingPageProps) {
                   </li>
                 ))}
               </ul>
+            </>
+          )}
+
+          {tourUrl && (
+            <>
+              <h2 className="mt-10 mb-5 text-3xl text-bone-50">3D tour</h2>
+              <MatterportTour
+                embedUrl={tourUrl}
+                listingId={listing.id}
+                listingTitle={listing.title}
+                poster={listing.hero}
+              />
             </>
           )}
 

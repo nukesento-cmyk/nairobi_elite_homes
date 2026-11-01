@@ -13,7 +13,7 @@ type PropertyCardProps = {
 
 export function PropertyCard({ listing, priority = false }: PropertyCardProps) {
   return (
-    <article className="group relative overflow-hidden rounded-xl border border-border">
+    <article className="group relative overflow-hidden rounded-xl border border-border motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out-expo motion-safe:hover:-translate-y-1">
       <div
         className={cn(
           "grain relative aspect-4/3 bg-linear-to-br",
@@ -27,7 +27,7 @@ export function PropertyCard({ listing, priority = false }: PropertyCardProps) {
             src={listing.hero.url}
             alt={listing.hero.alt}
             fill
-            priority={priority}
+            preload={priority}
             sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
             placeholder={listing.hero.lqip ? "blur" : "empty"}
             blurDataURL={listing.hero.lqip ?? undefined}
@@ -46,7 +46,7 @@ export function PropertyCard({ listing, priority = false }: PropertyCardProps) {
           {/* The stretched link makes the whole card clickable with a single tab stop. */}
           <Link
             href={`/listings/${listing.slug}`}
-            className="decoration-copper underline-offset-4 group-hover:underline after:absolute after:inset-0"
+            className="underline-draw after:absolute after:inset-0"
           >
             {listing.title}
           </Link>

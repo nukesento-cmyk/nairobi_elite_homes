@@ -12,7 +12,7 @@ const verticalLabels: Record<TeaserListing["vertical"], string> = {
 
 export function TeaserCard({ teaser }: { teaser: TeaserListing }) {
   return (
-    <article className="group relative overflow-hidden rounded-xl border border-copper/40">
+    <article className="group relative overflow-hidden rounded-xl border border-copper/40 motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out-expo motion-safe:hover:-translate-y-1">
       <div
         className={cn(
           "relative aspect-4/3 overflow-hidden bg-linear-to-br",
@@ -41,9 +41,9 @@ export function TeaserCard({ teaser }: { teaser: TeaserListing }) {
         <JoinLink
           source="teaser_card"
           placement="listing_grid"
-          className="mt-1 block font-medium text-copper-400 decoration-copper underline-offset-4 group-hover:underline after:absolute after:inset-0"
+          className="mt-1 inline-block font-medium text-copper-400 after:absolute after:inset-0"
         >
-          Join to view <span aria-hidden="true">→</span>
+          <span className="underline-draw">Join to view</span> <span aria-hidden="true">→</span>
         </JoinLink>
       </div>
     </article>

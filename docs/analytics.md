@@ -11,6 +11,7 @@ All events go through `track()` in `apps/web/src/lib/analytics.ts`. **No provide
 | `view_listing` | `listingId` | A listing page opens |
 | `filter_used` | `filter` | A listing filter changes |
 | `gallery_opened` | `listingId` | A listing photo is opened |
+| `tour_opened` | `listingId` | "Enter 3D tour" is clicked on a listing |
 | `lead_submitted` | `source` | The lead form is accepted |
 | `exit_modal_shown`, `exit_modal_dismissed`, `exit_modal_clicked` | none | Exit-intent modal, desktop only, once per session |
 

@@ -1,4 +1,5 @@
 import { JoinInterstitial } from "@/components/marketing/JoinInterstitial";
+import { ScrollReveal } from "@/components/motion/ScrollReveal";
 import { interleave } from "@/lib/interleave";
 import type { GridEntry } from "@/lib/listings";
 
@@ -20,7 +21,7 @@ type PropertyGridProps = {
 
 export function PropertyGrid({ entries, prioritizeFirstRow = false }: PropertyGridProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+    <ScrollReveal className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
       {interleave(entries, CARDS_PER_INTERSTITIAL).map((entry, i) => {
         if (entry.kind === "break") {
           return <JoinInterstitial key={`interstitial-${entry.index}`} />;
@@ -35,6 +36,6 @@ export function PropertyGrid({ entries, prioritizeFirstRow = false }: PropertyGr
           <TeaserCard key={entry.item.teaser.id} teaser={entry.item.teaser} />
         );
       })}
-    </div>
+    </ScrollReveal>
   );
 }

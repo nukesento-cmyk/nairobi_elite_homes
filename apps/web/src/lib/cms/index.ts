@@ -8,6 +8,7 @@ import { communities as fallbackCommunities, type Community } from "@/content/co
 import { applyJoinOverrides, getCommunityCopy, type JoinOverrides } from "@/content/community";
 import { testimonials as fallbackTestimonials, type Testimonial } from "@/content/testimonials";
 import { whyJoinCards as fallbackCards, type WhyJoinCard } from "@/content/why-join";
+import { splineEmbedUrl } from "@/lib/embeds";
 
 import {
   communitiesQuery,
@@ -16,11 +17,12 @@ import {
   listingDetailQuery,
   publicListingsQuery,
   publicSlugsQuery,
+  siteMediaQuery,
   teaserListingsQuery,
   testimonialsQuery,
   whyJoinCardsQuery,
 } from "./queries";
-import type { ListingDetail, PublicListing, TeaserListing } from "./types";
+import type { ListingDetail, PublicListing, SceneMedia, SiteMedia, TeaserListing } from "./types";
 
 export const CMS_CACHE_TAG = "cms";
 
@@ -110,6 +112,26 @@ export async function getLiveSite(): Promise<SiteConfig> {
   cacheTag(CMS_CACHE_TAG);
   cacheLife("hours");
   return applyCommunitySettings(site, await runQuery<CommunitySettings | null>(communitySettingsQuery));
+}
+
+/** A scene needs a valid link and a title, or it isn't shown at all. */
+function usableScene(scene: Partial<SceneMedia> | null | undefined): SceneMedia | null {
+  const url = splineEmbedUrl(scene?.url);
+  return url && scene?.title ? { url, title: scene.title, poster: scene.poster ?? null } : null;
+}
+
+export async function getSiteMedia(): Promise<SiteMedia> {
+  "use cache";
+  cacheTag(CMS_CACHE_TAG);
+  cacheLife("hours");
+  const media = await runQuery<Partial<SiteMedia> | null>(siteMediaQuery);
+  return {
+    heroExterior: media?.heroExterior ?? null,
+    // The crossfade needs a photo to start from.
+    heroInterior: media?.heroExterior ? (media.heroInterior ?? null) : null,
+    homesScene: usableScene(media?.homesScene),
+    landScene: usableScene(media?.landScene),
+  };
 }
 
 export async function getJoinCopy() {

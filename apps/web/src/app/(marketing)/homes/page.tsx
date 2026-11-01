@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 
+import { SplineScene } from "@/components/motion/SplineScene";
 import { ListingsBrowser } from "@/components/property/ListingsBrowser";
-import { getPublicListings, getTeaserListings } from "@/lib/cms";
+import { getPublicListings, getSiteMedia, getTeaserListings } from "@/lib/cms";
 
 export const metadata: Metadata = {
   title: "Homes",
@@ -11,7 +12,11 @@ export const metadata: Metadata = {
 };
 
 export default async function HomesPage() {
-  const [listings, teasers] = await Promise.all([getPublicListings(), getTeaserListings()]);
+  const [listings, teasers, { homesScene }] = await Promise.all([
+    getPublicListings(),
+    getTeaserListings(),
+    getSiteMedia(),
+  ]);
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 md:py-20">
@@ -23,6 +28,12 @@ export default async function HomesPage() {
         listings={listings.filter((listing) => listing.vertical === "residential")}
         teasers={teasers.filter((teaser) => teaser.vertical === "residential")}
       />
+      {homesScene && (
+        <div className="mt-section">
+          <h2 className="mb-8 text-4xl text-bone-50 md:text-5xl">{homesScene.title}</h2>
+          <SplineScene scene={homesScene} />
+        </div>
+      )}
     </section>
   );
 }

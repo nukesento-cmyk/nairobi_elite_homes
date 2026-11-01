@@ -2,11 +2,13 @@ import { FileSearch, Landmark, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 
 import { JoinLink } from "@/components/marketing/JoinLink";
+import { ScrollReveal } from "@/components/motion/ScrollReveal";
+import { SplineScene } from "@/components/motion/SplineScene";
 import { ListingsBrowser } from "@/components/property/ListingsBrowser";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
-import { getPublicListings, getTeaserListings } from "@/lib/cms";
+import { getPublicListings, getSiteMedia, getTeaserListings } from "@/lib/cms";
 
 export const metadata: Metadata = {
   title: "Land for sale in Nairobi's premium areas",
@@ -34,7 +36,11 @@ const safeguards = [
 ];
 
 export default async function LandPage() {
-  const [listings, teasers] = await Promise.all([getPublicListings(), getTeaserListings()]);
+  const [listings, teasers, { landScene }] = await Promise.all([
+    getPublicListings(),
+    getTeaserListings(),
+    getSiteMedia(),
+  ]);
   const { cta } = getCommunityCopy(site);
 
   return (
@@ -65,7 +71,7 @@ export default async function LandPage() {
           <h2 id="safeguards" className="sr-only">
             How we approach land
           </h2>
-          <ul className="grid gap-8 md:grid-cols-3">
+          <ScrollReveal as="ul" className="grid gap-8 md:grid-cols-3">
             {safeguards.map(({ icon: Icon, title, body }) => (
               <li key={title}>
                 <Icon aria-hidden="true" strokeWidth={1.5} className="size-6 text-copper-400" />
@@ -73,7 +79,7 @@ export default async function LandPage() {
                 <p className="mt-2 text-bone-200">{body}</p>
               </li>
             ))}
-          </ul>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -89,6 +95,17 @@ export default async function LandPage() {
           />
         </div>
       </section>
+
+      {landScene && (
+        <section aria-labelledby="land-scene" className="pb-section">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <h2 id="land-scene" className="mb-8 text-4xl text-bone-50 md:text-5xl">
+              {landScene.title}
+            </h2>
+            <SplineScene scene={landScene} />
+          </div>
+        </section>
+      )}
     </div>
   );
 }

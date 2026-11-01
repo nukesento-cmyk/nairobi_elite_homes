@@ -33,6 +33,8 @@
 
   --spacing-section: clamp(80px, 12vw, 160px);
 
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
   --animate-soft-pulse: soft-pulse 2.8s ease-out infinite;
 
   @keyframes soft-pulse {
@@ -143,4 +145,81 @@ html[data-strip-dismissed] [data-urgency-strip] {
   pointer-events: none;
   opacity: 0.04;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* --- Motion. With reduced motion, only the opacity fades below remain. --- */
+
+/* A copper underline that draws in from the left on a card's hover. */
+.underline-draw {
+  background-image: linear-gradient(var(--color-copper), var(--color-copper));
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 0 1px;
+  box-decoration-break: clone;
+  transition: background-size 400ms var(--ease-out-expo);
+}
+@media (hover: hover) {
+  .group:hover .underline-draw {
+    background-size: 100% 1px;
+  }
+}
+.underline-draw:focus-visible {
+  background-size: 100% 1px;
+}
+
+/* Set by ScrollReveal, and removed again once the reveal has finished. */
+[data-reveal] {
+  transition:
+    opacity 700ms var(--ease-out-expo) var(--reveal-delay, 0ms),
+    translate 700ms var(--ease-out-expo) var(--reveal-delay, 0ms);
+}
+[data-reveal="hidden"] {
+  opacity: 0;
+  translate: 0 16px;
+}
+
+/* Page transitions. Clicks pass through to the new page while they play. */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(.page-exit) {
+  animation: 150ms ease-out both page-fade-out;
+}
+::view-transition-new(.page-enter) {
+  animation: 400ms var(--ease-out-expo) both page-drift-in;
+}
+@keyframes page-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes page-drift-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .underline-draw {
+    transition: none;
+  }
+  [data-reveal="hidden"] {
+    translate: none;
+  }
+  ::view-transition-new(.page-enter) {
+    animation-name: page-fade-in;
+  }
+}
+
+@media print {
+  [data-reveal="hidden"] {
+    opacity: 1;
+    translate: none;
+  }
 }

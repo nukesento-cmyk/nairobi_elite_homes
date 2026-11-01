@@ -45,6 +45,7 @@ export type ListingDetail = PublicListing & {
   /** Null unless the listing is marked as having a public exact location. */
   subArea: string | null;
   coords: { lat: number; lng: number } | null;
+  matterportId: string | null;
 };
 
 /**
@@ -57,4 +58,18 @@ export type TeaserListing = {
   area: string;
   /** A tiny blurred placeholder, which cannot be enlarged into the real photo. */
   lqip: string | null;
+};
+
+/** The one 3D moment for a vertical. */
+export type SceneMedia = {
+  url: string;
+  title: string;
+  poster: ListingImage | null;
+};
+
+export type SiteMedia = {
+  heroExterior: ListingImage | null;
+  heroInterior: ListingImage | null;
+  homesScene: SceneMedia | null;
+  landScene: SceneMedia | null;
 };

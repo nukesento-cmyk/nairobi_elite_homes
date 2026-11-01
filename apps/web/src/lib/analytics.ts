@@ -5,6 +5,7 @@ export type AnalyticsEvents = {
   view_listing: { listingId: string };
   filter_used: { filter: string };
   gallery_opened: { listingId: string };
+  tour_opened: { listingId: string };
   join_click: { source: string; placement: string };
   exit_modal_shown: Record<string, never>;
   exit_modal_dismissed: Record<string, never>;

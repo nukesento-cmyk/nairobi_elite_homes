@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { MatterportTour } from "@/components/property/MatterportTour";
 import { setAnalyticsProvider } from "@/lib/analytics";
 
 import { JoinLink } from "./JoinLink";
@@ -29,6 +30,27 @@ describe("JoinLink", () => {
 
     fireEvent.click(link);
     expect(provider).toHaveBeenCalledWith("join_click", { source: "footer", placement: "global" });
+  });
+});
+
+describe("MatterportTour", () => {
+  it("loads nothing until clicked, then fires tour_opened", () => {
+    const provider = vi.fn();
+    setAnalyticsProvider(provider);
+    const { container } = render(
+      <MatterportTour
+        embedUrl="https://my.matterport.com/show/?m=abc123&play=1"
+        listingId="listing-1"
+        listingTitle="A home"
+        poster={null}
+      />,
+    );
+    expect(container.querySelector("iframe")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Enter 3D tour" }));
+
+    expect(screen.getByTitle("3D tour of A home")).toBeTruthy();
+    expect(provider).toHaveBeenCalledWith("tour_opened", { listingId: "listing-1" });
   });
 });
 

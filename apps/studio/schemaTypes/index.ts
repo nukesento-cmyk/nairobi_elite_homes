@@ -153,8 +153,14 @@ const listing = defineType({
           type: "array",
           of: [defineArrayMember(imageWithAlt)],
         }),
-        defineField({ name: "matterportId", title: "Matterport ID", type: "string" }),
-        defineField({ name: "splineSceneUrl", title: "Spline scene URL", type: "url" }),
+        defineField({
+          name: "matterportId",
+          title: "Matterport ID",
+          type: "string",
+          description:
+            "The m= value in the tour link. Public listings only. Turn off the address and map in Matterport first: the tour is visible to everyone.",
+          validation: (rule) => rule.regex(/^[A-Za-z0-9]{6,20}$/).error("Letters and numbers only, without the link."),
+        }),
       ],
     }),
     defineField({
@@ -308,14 +314,73 @@ const joinPage = defineType({
   preview: { prepare: () => ({ title: "Join Page" }) },
 });
 
+const scene = (name: string, title: string) =>
+  defineField({
+    name,
+    title,
+    type: "object",
+    options: { collapsible: true },
+    fields: [
+      defineField({
+        name: "url",
+        title: "Public Spline link",
+        type: "url",
+        description: "Starts with https://my.spline.design/. Leave empty to hide this section.",
+        validation: (rule) =>
+          rule.uri({ scheme: ["https"] }).custom((value) =>
+            !value || value.startsWith("https://my.spline.design/")
+              ? true
+              : "Must start with https://my.spline.design/",
+          ),
+      }),
+      defineField({
+        name: "title",
+        title: "Section heading",
+        type: "string",
+        description: "Also read out by screen readers. Required for the scene to appear.",
+      }),
+      defineField({
+        name: "poster",
+        title: "Poster image",
+        description: "Shown until the scene loads, and instead of it on phones until tapped.",
+        ...imageWithAlt,
+      }),
+    ],
+  });
+
+const siteMedia = defineType({
+  name: "siteMedia",
+  title: "Site Media",
+  type: "document",
+  fields: [
+    defineField({
+      name: "heroExterior",
+      title: "Homepage hero photo",
+      description: "Licensed, at least 2400px wide. Without one, the hero shows a plain gradient.",
+      ...imageWithAlt,
+    }),
+    defineField({
+      name: "heroInterior",
+      title: "Homepage interior photo",
+      description: "Fades in over the hero photo on scroll. Optional.",
+      ...imageWithAlt,
+    }),
+    scene("homesScene", "3D moment on the homes page"),
+    scene("landScene", "3D moment on the land page"),
+  ],
+  preview: { prepare: () => ({ title: "Site Media" }) },
+});
+
 export const singletons = [
   { type: "communitySettings", title: "Community Settings" },
   { type: "joinPage", title: "Join Page" },
+  { type: "siteMedia", title: "Site Media" },
 ];
 
 export const schemaTypes = [
   communitySettings,
   joinPage,
+  siteMedia,
   listing,
   community,
   whyJoinCard,
