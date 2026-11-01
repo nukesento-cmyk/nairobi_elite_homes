@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "Homes",
   description:
     "Homes for sale and rent in Karen, Runda, Kilimani, Rosslyn, Lavington and Muthaiga.",
+  alternates: { canonical: "/homes" },
 };
 
 export default async function HomesPage() {

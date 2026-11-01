@@ -2,6 +2,7 @@ import { Lock } from "lucide-react";
 
 import { JoinLink } from "@/components/marketing/JoinLink";
 import type { TeaserListing } from "@/lib/cms/types";
+import { cn } from "@/lib/utils";
 
 const verticalLabels: Record<TeaserListing["vertical"], string> = {
   residential: "Off-market home",
@@ -12,7 +13,14 @@ const verticalLabels: Record<TeaserListing["vertical"], string> = {
 export function TeaserCard({ teaser }: { teaser: TeaserListing }) {
   return (
     <article className="group relative overflow-hidden rounded-xl border border-copper/40">
-      <div className="relative aspect-4/3 overflow-hidden bg-linear-to-br from-forest-800 to-forest-950">
+      <div
+        className={cn(
+          "relative aspect-4/3 overflow-hidden bg-linear-to-br",
+          teaser.vertical === "land"
+            ? "from-slate-800 to-slate-950"
+            : "from-forest-800 to-forest-950",
+        )}
+      >
         {teaser.lqip && (
           <div
             aria-hidden="true"
