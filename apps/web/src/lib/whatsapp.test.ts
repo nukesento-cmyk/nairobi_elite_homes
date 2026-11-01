@@ -11,6 +11,7 @@ function configFor(communityStatus: CommunityStatus): SiteConfig {
     communityStatus,
     memberCount: "1240",
     cap: "1500",
+    offMarketCount: "300",
     paidPriceKes: "2500",
     paidPriceUsd: "20",
     instagramUrl: undefined,
@@ -36,15 +37,19 @@ describe("communityLink", () => {
 
 describe("joinLink", () => {
   it("sends founding visitors to the group with attribution", () => {
-    const url = new URL(joinLink("footer", configFor("founding")));
+    const url = new URL(joinLink("footer", false, configFor("founding")));
     expect(url.hostname).toBe("chat.whatsapp.com");
     expect(url.searchParams.get("utm_source")).toBe("footer");
   });
 
+  it.each(["paid", "waitlist"] as const)("sends %s visitors to /join first", (status) => {
+    expect(joinLink("footer", false, configFor(status))).toBe("/join");
+  });
+
   it.each(["paid", "waitlist"] as const)(
-    "never exposes the group invite when status is %s",
+    "opens a direct chat from /join, never the group invite, when status is %s",
     (status) => {
-      const url = new URL(joinLink("footer", configFor(status)));
+      const url = new URL(joinLink("join_page", true, configFor(status)));
       expect(url.hostname).toBe("wa.me");
       expect(url.searchParams.get("text")).toContain("NairobiEliteHomes");
     },

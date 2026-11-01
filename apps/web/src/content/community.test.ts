@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseSiteConfig, type RawSiteEnv } from "@/config/site";
 
-import { getCommunityCopy } from "./community";
+import { getCommunityCopy, getSocialProofItems } from "./community";
 
 const baseEnv: RawSiteEnv = {
   whatsappGroupUrl: "https://chat.whatsapp.com/ABC",
@@ -10,6 +10,7 @@ const baseEnv: RawSiteEnv = {
   communityStatus: "founding",
   memberCount: "1240",
   cap: "1500",
+  offMarketCount: "300",
   paidPriceKes: "2500",
   paidPriceUsd: "20",
   instagramUrl: undefined,
@@ -59,5 +60,56 @@ describe("urgency strip copy", () => {
     const strip = stripFor({ communityStatus: "waitlist" });
     expect(strip.lead).toBe("Founding spots are full —");
     expect(strip.cta).toBe("join the waitlist");
+  });
+});
+
+const copyFor = (override: Partial<RawSiteEnv>) =>
+  getCommunityCopy(parseSiteConfig({ ...baseEnv, ...override }));
+
+describe("join page copy", () => {
+  it("promises permanent free access only in founding", () => {
+    const promise = /permanent free access/i;
+    expect(copyFor({}).join.benefits.join()).toMatch(promise);
+    expect(copyFor({ communityStatus: "paid" }).join.benefits.join()).not.toMatch(promise);
+    expect(copyFor({ communityStatus: "waitlist" }).join.benefits.join()).not.toMatch(promise);
+  });
+
+  it("only calls joining free in founding", () => {
+    for (const communityStatus of ["paid", "waitlist"]) {
+      const copy = copyFor({ communityStatus });
+      const text = [copy.heroAccess, copy.join.subhead, copy.join.offerBody, copy.cta.long].join(" ");
+      expect(text).not.toMatch(/\bfree\b/i);
+    }
+  });
+
+  it("states both prices when set", () => {
+    expect(copyFor({}).join.offerBody).toContain("KES 2,500/mo or USD 20/mo");
+    expect(copyFor({ communityStatus: "paid" }).heroAccess).toBe(
+      "Membership is KES 2,500/mo or USD 20/mo.",
+    );
+  });
+
+  it("invents no price when none is set", () => {
+    const unset = { paidPriceKes: "", paidPriceUsd: "" };
+    expect(copyFor(unset).join.offerBody).not.toMatch(/KES|USD/);
+    const paid = copyFor({ communityStatus: "paid", ...unset });
+    expect([paid.heroAccess, paid.join.offerBody].join(" ")).not.toMatch(/KES|USD/);
+  });
+});
+
+describe("social proof", () => {
+  const itemsFor = (override: Partial<RawSiteEnv>) =>
+    getSocialProofItems(parseSiteConfig({ ...baseEnv, ...override }));
+
+  it("shows the figures that are set", () => {
+    expect(itemsFor({})).toEqual([
+      "1,240 members",
+      "300+ off-market listings shared first in the group",
+    ]);
+    expect(itemsFor({ offMarketCount: "" })).toEqual(["1,240 members"]);
+  });
+
+  it("shows nothing when no figures are set", () => {
+    expect(itemsFor({ memberCount: "", offMarketCount: "" })).toEqual([]);
   });
 });

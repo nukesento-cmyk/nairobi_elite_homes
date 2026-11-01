@@ -3,6 +3,9 @@
 @import "shadcn/tailwind.css";
 @import "lenis/dist/lenis.css";
 
+/* No .dark class is ever set, so dark: variants never follow the OS setting. */
+@custom-variant dark (&:is(.dark *));
+
 /* Brand tokens. Colors mirror src/config/design-tokens.ts (a test enforces this).
    Clearing Tailwind's default palette makes off-brand classes like bg-white do nothing. */
 @theme static {

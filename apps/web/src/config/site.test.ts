@@ -8,6 +8,7 @@ const baseEnv: RawSiteEnv = {
   communityStatus: "founding",
   memberCount: "1240",
   cap: "1500",
+  offMarketCount: "300",
   paidPriceKes: "2500",
   paidPriceUsd: "20",
   instagramUrl: "https://instagram.com/x",

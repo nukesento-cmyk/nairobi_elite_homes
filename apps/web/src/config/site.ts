@@ -9,6 +9,7 @@ export type RawSiteEnv = {
   communityStatus: RawValue;
   memberCount: RawValue;
   cap: RawValue;
+  offMarketCount: RawValue;
   paidPriceKes: RawValue;
   paidPriceUsd: RawValue;
   instagramUrl: RawValue;
@@ -28,6 +29,7 @@ export type SiteConfig = {
     status: CommunityStatus;
     memberCount: number | null;
     cap: number | null;
+    offMarketCount: number | null;
     /** Null when the count or cap is unknown, so copy never shows an invented number. */
     spotsLeft: number | null;
     paidPriceKes: number | null;
@@ -101,6 +103,7 @@ export function parseSiteConfig(env: RawSiteEnv): SiteConfig {
       status: parseStatus(env.communityStatus),
       memberCount,
       cap,
+      offMarketCount: parseCount("NEXT_PUBLIC_COMMUNITY_OFF_MARKET_COUNT", env.offMarketCount),
       spotsLeft:
         memberCount !== null && cap !== null ? Math.max(cap - memberCount, 0) : null,
       paidPriceKes: parseCount("NEXT_PUBLIC_COMMUNITY_PAID_PRICE_KES", env.paidPriceKes),
@@ -122,6 +125,7 @@ export const site = parseSiteConfig({
   communityStatus: process.env.NEXT_PUBLIC_COMMUNITY_STATUS,
   memberCount: process.env.NEXT_PUBLIC_COMMUNITY_MEMBER_COUNT,
   cap: process.env.NEXT_PUBLIC_COMMUNITY_CAP,
+  offMarketCount: process.env.NEXT_PUBLIC_COMMUNITY_OFF_MARKET_COUNT,
   paidPriceKes: process.env.NEXT_PUBLIC_COMMUNITY_PAID_PRICE_KES,
   paidPriceUsd: process.env.NEXT_PUBLIC_COMMUNITY_PAID_PRICE_USD,
   instagramUrl: process.env.NEXT_PUBLIC_INSTAGRAM_URL,

@@ -11,12 +11,18 @@ All events go through `track()` in `apps/web/src/lib/analytics.ts`. **No provide
 
 ### `join_click` sources
 
-| Source | Where |
-|---|---|
-| `top_strip` | Sticky strip at the top of the page |
-| `header` | Site header button |
-| `footer` | Footer button |
-| `floating_button` | Floating WhatsApp button on mobile |
+| Source | Placement | Where |
+|---|---|---|
+| `top_strip` | `global` | Sticky strip at the top of the page |
+| `header` | `global` | Site header button |
+| `footer` | `global` | Footer button |
+| `floating_button` | `global` | Floating WhatsApp button on mobile |
+| `hero` | `home_hero` | Homepage hero, primary button |
+| `home_first_look`, `home_verified`, `home_land_safety`, `home_owner_contact` | `home_why_join` | Homepage "why join" cards |
+| `interstitial` | `listing_grid` | Card inside the listing grid |
+| `join_page` | `join_hero` | `/join`, main button |
+| `join_page_closing` | `join_closing` | `/join`, closing button |
+| `join_first_look`, `join_verified`, `join_land_safety`, `join_owner_contact`, `join_price_checks`, `join_network` | `join_why_join` | `/join` problem cards |
 
 ## Defined for later sprints
 

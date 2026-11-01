@@ -17,7 +17,7 @@ export function SiteFooter() {
   return (
     // Extra space on phones so the floating button never covers footer links.
     <footer className="border-t border-border pb-24 md:pb-0">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[2fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[2fr_1fr_1fr_1fr]">
         <div>
           <p className="font-heading text-xl text-bone-50">{site.name}</p>
           <p className="mt-3 mb-6 max-w-sm text-sm text-bone-200">
@@ -29,9 +29,9 @@ export function SiteFooter() {
           </JoinLink>
         </div>
 
-        {(email || phone || primaryNav.length > 0) && (
+        {primaryNav.length > 0 && (
           <div>
-            <h2 className={headingClass}>Contact</h2>
+            <h2 className={headingClass}>Explore</h2>
             <ul className="space-y-2 text-sm">
               {primaryNav.map((item) => (
                 <li key={item.href}>
@@ -40,6 +40,14 @@ export function SiteFooter() {
                   </Link>
                 </li>
               ))}
+            </ul>
+          </div>
+        )}
+
+        {(email || phone) && (
+          <div>
+            <h2 className={headingClass}>Contact</h2>
+            <ul className="space-y-2 text-sm">
               {email && (
                 <li>
                   <a href={`mailto:${email}`} className={linkClass}>

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ComponentProps } from "react";
 
 import { track } from "@/lib/analytics";
@@ -13,16 +15,14 @@ type JoinLinkProps = Omit<ComponentProps<"a">, "href" | "target" | "rel"> & {
 };
 
 export function JoinLink({ source, placement = "global", onClick, ...props }: JoinLinkProps) {
-  return (
-    <a
-      {...props}
-      href={joinLink(source)}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={(event) => {
-        track("join_click", { source, placement });
-        onClick?.(event);
-      }}
-    />
-  );
+  const href = joinLink(source, usePathname() === "/join");
+  const handleClick: JoinLinkProps["onClick"] = (event) => {
+    track("join_click", { source, placement });
+    onClick?.(event);
+  };
+
+  if (href.startsWith("/")) {
+    return <Link {...props} href={href} onClick={handleClick} />;
+  }
+  return <a {...props} href={href} target="_blank" rel="noopener noreferrer" onClick={handleClick} />;
 }
