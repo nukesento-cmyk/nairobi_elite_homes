@@ -1,0 +1,83 @@
+import Link from "next/link";
+
+import { buttonVariants } from "@/components/ui/button";
+import { primaryNav } from "@/config/nav";
+import { site } from "@/config/site";
+import { getCommunityCopy } from "@/content/community";
+
+import { JoinLink } from "./JoinLink";
+
+const linkClass = "transition-colors hover:text-copper-400";
+const headingClass = "mb-3 text-xs font-medium tracking-widest text-bone-200 uppercase";
+
+export function SiteFooter() {
+  const { cta } = getCommunityCopy(site);
+  const { email, phone } = site.contact;
+
+  return (
+    // Extra space on phones so the floating button never covers footer links.
+    <footer className="border-t border-border pb-24 md:pb-0">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[2fr_1fr_1fr]">
+        <div>
+          <p className="font-heading text-xl text-bone-50">{site.name}</p>
+          <p className="mt-3 mb-6 max-w-sm text-sm text-bone-200">
+            A private community for serious buyers, renters, sellers and landowners in
+            Nairobi&apos;s premium areas.
+          </p>
+          <JoinLink source="footer" className={buttonVariants({ size: "cta" })}>
+            {cta.long}
+          </JoinLink>
+        </div>
+
+        {(email || phone || primaryNav.length > 0) && (
+          <div>
+            <h2 className={headingClass}>Contact</h2>
+            <ul className="space-y-2 text-sm">
+              {primaryNav.map((item) => (
+                <li key={item.href}>
+                  <Link href={item.href} className={linkClass}>
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+              {email && (
+                <li>
+                  <a href={`mailto:${email}`} className={linkClass}>
+                    {email}
+                  </a>
+                </li>
+              )}
+              {phone && (
+                <li>
+                  <a href={`tel:${phone}`} className={linkClass}>
+                    {phone}
+                  </a>
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+
+        {site.socials.length > 0 && (
+          <div>
+            <h2 className={headingClass}>Follow</h2>
+            <ul className="space-y-2 text-sm">
+              {site.socials.map((social) => (
+                <li key={social.label}>
+                  <a
+                    href={social.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={linkClass}
+                  >
+                    {social.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </footer>
+  );
+}

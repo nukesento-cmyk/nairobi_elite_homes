@@ -1,7 +1,15 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
-import tsconfigPaths from 'vite-tsconfig-paths';
 export default defineConfig({
-  plugins: [tsconfigPaths(), react()],
-  test: { environment: 'jsdom' },
+  plugins: [react()],
+  resolve: { tsconfigPaths: true },
+  test: {
+    environment: 'jsdom',
+    // config/site.ts validates on import, and Vitest doesn't read .env.local.
+    env: {
+      NEXT_PUBLIC_WHATSAPP_GROUP_URL: 'https://chat.whatsapp.com/TESTINVITE',
+      NEXT_PUBLIC_WHATSAPP_DIRECT_URL: 'https://wa.me/254700000000',
+      NEXT_PUBLIC_COMMUNITY_STATUS: 'founding',
+    },
+  },
 });
