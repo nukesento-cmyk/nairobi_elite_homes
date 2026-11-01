@@ -103,12 +103,13 @@ export function ListingsBrowser({ listings, teasers }: ListingsBrowserProps) {
         </label>
       </form>
 
+      <h2 className="sr-only">Results</h2>
       <p role="status" className="mb-6 text-sm text-bone-200">
         {entries.length === 1 ? "1 listing" : `${entries.length} listings`}
       </p>
 
       {entries.length > 0 ? (
-        <PropertyGrid entries={entries} />
+        <PropertyGrid entries={entries} prioritizeFirstRow />
       ) : (
         <p className="rounded-xl border border-border p-10 text-center text-bone-200">
           Nothing public matches those filters. New listings reach the group first.

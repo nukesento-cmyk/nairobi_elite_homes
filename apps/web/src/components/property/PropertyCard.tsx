@@ -5,7 +5,13 @@ import type { PublicListing } from "@/lib/cms/types";
 import { formatPrice, formatSpecs } from "@/lib/listings";
 import { cn } from "@/lib/utils";
 
-export function PropertyCard({ listing }: { listing: PublicListing }) {
+type PropertyCardProps = {
+  listing: PublicListing;
+  /** Loads the photo immediately. For cards visible without scrolling. */
+  priority?: boolean;
+};
+
+export function PropertyCard({ listing, priority = false }: PropertyCardProps) {
   return (
     <article className="group relative overflow-hidden rounded-xl border border-border">
       <div
@@ -21,6 +27,7 @@ export function PropertyCard({ listing }: { listing: PublicListing }) {
             src={listing.hero.url}
             alt={listing.hero.alt}
             fill
+            priority={priority}
             sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
             placeholder={listing.hero.lqip ? "blur" : "empty"}
             blurDataURL={listing.hero.lqip ?? undefined}
