@@ -9,18 +9,23 @@ import { WhyJoinCards } from "@/components/marketing/WhyJoinCards";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
-import { getTestimonials, getWhyJoinCards } from "@/lib/cms";
+import { getJoinCopy, getTestimonials, getWhyJoinCards } from "@/lib/cms";
 
 const copy = getCommunityCopy(site);
 
 export const metadata: Metadata = {
   title: "Join the community",
   description: copy.join.subhead,
+  alternates: { canonical: "/join" },
 };
 
 export default async function JoinPage() {
-  const { join, cta } = copy;
-  const [cards, testimonials] = await Promise.all([getWhyJoinCards(), getTestimonials()]);
+  const { cta } = copy;
+  const [join, cards, testimonials] = await Promise.all([
+    getJoinCopy(),
+    getWhyJoinCards(),
+    getTestimonials(),
+  ]);
 
   return (
     <>

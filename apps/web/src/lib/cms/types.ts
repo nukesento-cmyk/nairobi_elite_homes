@@ -34,6 +34,7 @@ export type PublicListing = {
   specs: ListingSpecs;
   isFeatured: boolean;
   isSample: boolean;
+  updatedAt: string;
   hero: ListingImage | null;
 };
 
@@ -44,7 +45,6 @@ export type ListingDetail = PublicListing & {
   /** Null unless the listing is marked as having a public exact location. */
   subArea: string | null;
   coords: { lat: number; lng: number } | null;
-  updatedAt: string;
 };
 
 /**

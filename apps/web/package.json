@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check-revalidation": "node scripts/check-revalidation.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

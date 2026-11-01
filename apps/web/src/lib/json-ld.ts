@@ -1,7 +1,29 @@
 import type { ListingDetail } from "@/lib/cms/types";
+import type { Community } from "@/content/communities";
+
+// A title containing "</script>" must not be able to end the script tag.
+function serialize(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
+}
+
+export function communityJsonLd(community: Community, siteUrl: string | null): string {
+  return serialize({
+    "@context": "https://schema.org",
+    "@type": "Place",
+    name: `${community.name}, Nairobi`,
+    description: community.summary,
+    url: siteUrl ? new URL(`/communities/${community.slug}`, siteUrl).toString() : undefined,
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: community.name,
+      addressRegion: "Nairobi",
+      addressCountry: "KE",
+    },
+  });
+}
 
 export function listingJsonLd(listing: ListingDetail): string {
-  const json = JSON.stringify({
+  return serialize({
     "@context": "https://schema.org",
     "@type": "RealEstateListing",
     name: listing.title,
@@ -21,6 +43,4 @@ export function listingJsonLd(listing: ListingDetail): string {
         : undefined,
     },
   });
-  // A listing title containing "</script>" must not be able to end the script tag.
-  return json.replace(/</g, "\\u003c");
 }

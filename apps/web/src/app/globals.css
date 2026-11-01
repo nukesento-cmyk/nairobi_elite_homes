@@ -101,6 +101,15 @@
   --radius: 0.625rem;
 }
 
+/* The land vertical's slate base. Components using these tokens follow it. */
+.vertical-land {
+  --background: var(--color-slate-950);
+  --card: var(--color-slate-900);
+  --secondary: var(--color-slate-800);
+  --muted: var(--color-slate-800);
+  --accent: var(--color-slate-800);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

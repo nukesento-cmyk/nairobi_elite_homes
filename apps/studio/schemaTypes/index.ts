@@ -2,7 +2,7 @@ import { defineArrayMember, defineField, defineType } from "sanity";
 
 const imageWithAlt = {
   type: "image" as const,
-  options: { hotspot: true, metadata: ["lqip", "palette"] },
+  options: { hotspot: true, metadata: ["lqip", "palette"] as ("lqip" | "palette")[] },
   fields: [
     defineField({
       name: "alt",
@@ -224,4 +224,100 @@ const testimonial = defineType({
   ],
 });
 
-export const schemaTypes = [listing, whyJoinCard, testimonial];
+const bulletList = (name: string, title: string) =>
+  defineField({
+    name,
+    title,
+    type: "array",
+    of: [defineArrayMember({ type: "string" })],
+    validation: (rule) => rule.required().min(1),
+  });
+
+const community = defineType({
+  name: "community",
+  title: "Community",
+  type: "document",
+  fields: [
+    defineField({ name: "name", type: "string", validation: (rule) => rule.required() }),
+    defineField({
+      name: "slug",
+      type: "slug",
+      options: { source: "name" },
+      description:
+        "Must match an existing area page: karen, runda, kilimani, rosslyn, lavington or muthaiga.",
+      validation: (rule) => rule.required(),
+    }),
+    defineField({ name: "summary", type: "text", rows: 2, validation: (rule) => rule.required() }),
+    defineField({ name: "intro", type: "text", rows: 5, validation: (rule) => rule.required() }),
+    bulletList("character", "What it's like"),
+    bulletList("suits", "Who it suits"),
+    bulletList("checks", "What to check before buying"),
+  ],
+});
+
+const countField = (name: string, title: string) =>
+  defineField({
+    name,
+    title,
+    type: "number",
+    validation: (rule) => rule.integer().min(0),
+  });
+
+const communitySettings = defineType({
+  name: "communitySettings",
+  title: "Community Settings",
+  type: "document",
+  description: "Real figures only. Leave a field empty to use the value set at deployment.",
+  fields: [
+    countField("memberCount", "Member count"),
+    countField("cap", "Founding spots cap"),
+    countField("offMarketCount", "Off-market listings shared"),
+    countField("paidPriceKes", "Monthly price (KES)"),
+    countField("paidPriceUsd", "Monthly price (USD)"),
+  ],
+  preview: { prepare: () => ({ title: "Community Settings" }) },
+});
+
+const joinCopyFields = (status: string, title: string) =>
+  defineField({
+    name: status,
+    title,
+    type: "object",
+    options: { collapsible: true, collapsed: status !== "founding" },
+    fields: [
+      defineField({ name: "badge", type: "string" }),
+      defineField({ name: "headline", type: "string" }),
+      defineField({ name: "subhead", type: "text", rows: 3 }),
+      defineField({ name: "benefits", type: "array", of: [defineArrayMember({ type: "string" })] }),
+      defineField({ name: "offerTitle", title: "Offer heading", type: "string" }),
+      defineField({ name: "offerBody", title: "Offer text", type: "text", rows: 2 }),
+      defineField({ name: "closingHeadline", type: "string" }),
+    ],
+  });
+
+const joinPage = defineType({
+  name: "joinPage",
+  title: "Join Page",
+  type: "document",
+  description: "Leave a field empty to keep the built-in copy.",
+  fields: [
+    joinCopyFields("founding", "While founding access is open"),
+    joinCopyFields("paid", "When membership is paid"),
+    joinCopyFields("waitlist", "When there's a waitlist"),
+  ],
+  preview: { prepare: () => ({ title: "Join Page" }) },
+});
+
+export const singletons = [
+  { type: "communitySettings", title: "Community Settings" },
+  { type: "joinPage", title: "Join Page" },
+];
+
+export const schemaTypes = [
+  communitySettings,
+  joinPage,
+  listing,
+  community,
+  whyJoinCard,
+  testimonial,
+];

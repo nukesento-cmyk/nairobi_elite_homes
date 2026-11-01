@@ -23,6 +23,7 @@ const listing = (id: string, area: string, period: "sale" | "month", beds?: numb
   specs: { beds },
   isFeatured: false,
   isSample: false,
+  updatedAt: "2026-11-01T00:00:00Z",
   hero: null,
 });
 
@@ -34,6 +35,8 @@ const teaser = (id: string, area: string): TeaserListing => ({
 });
 
 const all = [listing("a", "Karen", "sale", 5), listing("b", "Runda", "month", 3), listing("c", "Karen", "month")];
+
+const NO_FILTERS = { area: "", deal: "", beds: 0, acres: 0, title: "" } as const;
 
 describe("formatting", () => {
   it("formats prices", () => {
@@ -52,27 +55,40 @@ describe("filters", () => {
   it("filters by area, deal and minimum beds", () => {
     const ids = (filters: Parameters<typeof filterListings>[1]) =>
       filterListings(all, filters).map((l) => l.id);
-    expect(ids({ area: "", deal: "", beds: 0 })).toEqual(["a", "b", "c"]);
-    expect(ids({ area: "Karen", deal: "", beds: 0 })).toEqual(["a", "c"]);
-    expect(ids({ area: "", deal: "month", beds: 0 })).toEqual(["b", "c"]);
-    expect(ids({ area: "", deal: "", beds: 4 })).toEqual(["a"]);
-    expect(ids({ area: "Karen", deal: "month", beds: 4 })).toEqual([]);
+    expect(ids(NO_FILTERS)).toEqual(["a", "b", "c"]);
+    expect(ids({ ...NO_FILTERS, area: "Karen" })).toEqual(["a", "c"]);
+    expect(ids({ ...NO_FILTERS, deal: "month" })).toEqual(["b", "c"]);
+    expect(ids({ ...NO_FILTERS, beds: 4 })).toEqual(["a"]);
+    expect(ids({ ...NO_FILTERS, area: "Karen", deal: "month", beds: 4 })).toEqual([]);
+  });
+
+  it("filters land by minimum size and title", () => {
+    const plots = [
+      { ...listing("half", "Karen", "sale"), specs: { acreage: 0.5, titleStatus: "freehold" } },
+      { ...listing("two", "Runda", "sale"), specs: { acreage: 2, titleStatus: "leasehold" } },
+      { ...listing("unknown", "Runda", "sale"), specs: {} },
+    ] as PublicListing[];
+    const ids = (filters: Parameters<typeof filterListings>[1]) =>
+      filterListings(plots, filters).map((l) => l.id);
+    expect(ids({ ...NO_FILTERS, acres: 1 })).toEqual(["two"]);
+    expect(ids({ ...NO_FILTERS, title: "freehold" })).toEqual(["half"]);
+    expect(ids(NO_FILTERS)).toEqual(["half", "two", "unknown"]);
   });
 
   it("filters teasers by area only", () => {
     const teasers = [teaser("x", "Karen"), teaser("y", "Runda")];
-    expect(filterTeasers(teasers, { area: "Karen", deal: "month", beds: 9 }).map((t) => t.id)).toEqual(["x"]);
+    expect(filterTeasers(teasers, { ...NO_FILTERS, area: "Karen", deal: "month", beds: 9 }).map((t) => t.id)).toEqual(["x"]);
   });
 
   it("round-trips through the URL", () => {
-    const filters = { area: "Karen Hills", deal: "sale", beds: 3 } as const;
+    const filters = { area: "Karen Hills", deal: "sale", beds: 3, acres: 0.5, title: "freehold" } as const;
     expect(parseFilters(`?${serializeFilters(filters)}`)).toEqual(filters);
-    expect(serializeFilters({ area: "", deal: "", beds: 0 })).toBe("");
+    expect(serializeFilters(NO_FILTERS)).toBe("");
   });
 
   it("ignores invalid URL values", () => {
-    expect(parseFilters("?deal=free&beds=-2")).toEqual({ area: "", deal: "", beds: 0 });
-    expect(parseFilters("?beds=abc")).toEqual({ area: "", deal: "", beds: 0 });
+    expect(parseFilters("?deal=free&beds=-2&acres=-1&title=stolen")).toEqual(NO_FILTERS);
+    expect(parseFilters("?beds=abc")).toEqual(NO_FILTERS);
   });
 
   it("lists each area once, sorted", () => {

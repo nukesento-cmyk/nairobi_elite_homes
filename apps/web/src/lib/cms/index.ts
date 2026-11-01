@@ -3,10 +3,16 @@ import "server-only";
 import { createClient } from "@sanity/client";
 import { cacheLife, cacheTag } from "next/cache";
 
+import { applyCommunitySettings, site, type CommunitySettings, type SiteConfig } from "@/config/site";
+import { communities as fallbackCommunities, type Community } from "@/content/communities";
+import { applyJoinOverrides, getCommunityCopy, type JoinOverrides } from "@/content/community";
 import { testimonials as fallbackTestimonials, type Testimonial } from "@/content/testimonials";
 import { whyJoinCards as fallbackCards, type WhyJoinCard } from "@/content/why-join";
 
 import {
+  communitiesQuery,
+  communitySettingsQuery,
+  joinPageQuery,
   listingDetailQuery,
   publicListingsQuery,
   publicSlugsQuery,
@@ -96,4 +102,48 @@ export async function getTestimonials(): Promise<Testimonial[]> {
   cacheLife("hours");
   const testimonials = await runQuery<Testimonial[]>(testimonialsQuery);
   return testimonials.length > 0 ? testimonials : fallbackTestimonials;
+}
+
+/** The site config with marketing's CMS numbers applied. Server components only. */
+export async function getLiveSite(): Promise<SiteConfig> {
+  "use cache";
+  cacheTag(CMS_CACHE_TAG);
+  cacheLife("hours");
+  return applyCommunitySettings(site, await runQuery<CommunitySettings | null>(communitySettingsQuery));
+}
+
+export async function getJoinCopy() {
+  "use cache";
+  cacheTag(CMS_CACHE_TAG);
+  cacheLife("hours");
+  const live = await getLiveSite();
+  const overrides = await runQuery<JoinOverrides | null>(joinPageQuery, {
+    status: live.community.status,
+  });
+  return applyJoinOverrides(getCommunityCopy(live).join, overrides);
+}
+
+/** CMS documents replace the starter copy per slug, so no community page can vanish. */
+export async function getCommunities(): Promise<Community[]> {
+  "use cache";
+  cacheTag(CMS_CACHE_TAG);
+  cacheLife("hours");
+  const documents = await runQuery<Community[]>(communitiesQuery);
+  const bySlug = new Map(documents.map((document) => [document.slug, document]));
+  return fallbackCommunities.map((community) => {
+    const document = bySlug.get(community.slug);
+    if (!document) return community;
+    return {
+      ...community,
+      ...document,
+      character: document.character ?? community.character,
+      suits: document.suits ?? community.suits,
+      checks: document.checks ?? community.checks,
+    };
+  });
+}
+
+export async function getCommunity(slug: string): Promise<Community | null> {
+  const all = await getCommunities();
+  return all.find((community) => community.slug === slug) ?? null;
 }

@@ -41,11 +41,22 @@ In the same API settings, create a webhook:
 
 - **URL:** `https://<your site>/api/revalidate`
 - **Trigger on:** create, update and delete
-- **Filter:** `_type in ["listing", "whyJoinCard", "testimonial"]`
+- **Filter:** `_type in ["listing", "whyJoinCard", "testimonial", "community", "communitySettings", "joinPage"]`
 - **HTTP method:** POST
 - **Header:** `Authorization` set to `Bearer <SANITY_REVALIDATE_SECRET>`
 
 Without this webhook, a published change can take hours to appear. That includes moving a listing off-market, which keeps it visible until the cache expires. Test it before adding real listings.
+
+## What marketing can edit
+
+| In the Studio | Controls |
+|---|---|
+| Community Settings | Member count, spots cap, off-market count and paid prices. Empty fields fall back to the env values. |
+| Join Page | `/join` copy for each community status. Empty fields keep the built-in copy. |
+| Community | Area pages. A page's starter copy stays until a document with the same slug is published. |
+| Listing, Why join card, Testimonial | Those items. |
+
+Switching `NEXT_PUBLIC_COMMUNITY_STATUS` and swapping WhatsApp links remain env changes, followed by a redeploy.
 
 ## Known limit: image files
 

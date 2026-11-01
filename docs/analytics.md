@@ -29,6 +29,8 @@ All events go through `track()` in `apps/web/src/lib/analytics.ts`. **No provide
 | `listing_detail` | `listing_detail` | Listing page, gated location panel |
 | `listing_bar`, `listing_bar_whatsapp` | `listing_detail` | Listing page, mobile bar |
 | `exit_modal` | `exit_modal` | Exit-intent modal |
+| `land_hero` | `land_hero` | `/land` hero button |
+| `community_karen`, `community_runda`, `community_kilimani`, `community_rosslyn`, `community_lavington`, `community_muthaiga` | `community_page` | Community page button |
 | `join_page` | `join_hero` | `/join`, main button |
 | `join_page_closing` | `join_closing` | `/join`, closing button |
 | `join_first_look`, `join_verified`, `join_land_safety`, `join_owner_contact`, `join_price_checks`, `join_network` | `join_why_join` | `/join` problem cards |

@@ -1,15 +1,15 @@
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
-import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
+import { getLiveSite } from "@/lib/cms";
 
 import { JoinLink } from "./JoinLink";
 import { SocialProofLine } from "./SocialProofLine";
 
 // The README's cinematic image goes here once a licensed photo is available.
-export function HomeHero() {
-  const copy = getCommunityCopy(site);
+export async function HomeHero() {
+  const copy = getCommunityCopy(await getLiveSite());
 
   return (
     <section className="grain relative bg-linear-to-b from-forest-900 to-forest-950 py-section">

@@ -22,6 +22,7 @@ const CARD = `
   specs,
   "isFeatured": coalesce(isFeatured, false),
   "isSample": coalesce(isSample, false),
+  "updatedAt": _updatedAt,
   "hero": media.hero${IMAGE}
 `;
 
@@ -41,8 +42,7 @@ export const listingDetailQuery = `*[${PUBLISHED_LISTING} && status == "public" 
   "features": coalesce(features, []),
   "gallery": coalesce(media.gallery[]${IMAGE}, []),
   "subArea": select(location.isExactPublic == true => location.subArea, null),
-  "coords": select(location.isExactPublic == true => location.coords{lat, lng}, null),
-  "updatedAt": _updatedAt
+  "coords": select(location.isExactPublic == true => location.coords{lat, lng}, null)
 }`;
 
 export const publicSlugsQuery = `*[${PUBLISHED_LISTING} && status == "public"].slug.current`;
@@ -52,3 +52,14 @@ export const whyJoinCardsQuery = `*[_type == "whyJoinCard" && !(_id in path("dra
 
 export const testimonialsQuery = `*[_type == "testimonial" && !(_id in path("drafts.**"))]
   | order(_createdAt desc) {quote, name, role}`;
+
+export const communitiesQuery = `*[_type == "community" && !(_id in path("drafts.**")) && defined(slug.current)] {
+  "slug": slug.current, name, summary, intro, character, suits, checks
+}`;
+
+// Singletons are read by their fixed ID, which also excludes unpublished drafts.
+export const communitySettingsQuery = `*[_id == "communitySettings"][0] {
+  memberCount, cap, offMarketCount, paidPriceKes, paidPriceUsd
+}`;
+
+export const joinPageQuery = `*[_id == "joinPage"][0][$status]`;

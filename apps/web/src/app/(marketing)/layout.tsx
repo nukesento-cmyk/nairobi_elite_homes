@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { CommunityStatusBeacon } from "@/components/marketing/CommunityStatusBeacon";
 import { ExitIntentModal } from "@/components/marketing/ExitIntentModal";
@@ -6,8 +6,12 @@ import { FloatingWhatsAppButton } from "@/components/marketing/FloatingWhatsAppB
 import { SiteFooter } from "@/components/marketing/SiteFooter";
 import { SiteHeader } from "@/components/marketing/SiteHeader";
 import { UrgencyStrip } from "@/components/marketing/UrgencyStrip";
+import { getCommunityCopy } from "@/content/community";
+import { getLiveSite } from "@/lib/cms";
 
-export default function MarketingLayout({ children }: { children: ReactNode }) {
+export default async function MarketingLayout({ children }: { children: ReactNode }) {
+  const { exitModal } = getCommunityCopy(await getLiveSite());
+
   return (
     <>
       <a
@@ -22,8 +26,11 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
       <SiteFooter />
-      <FloatingWhatsAppButton />
-      <ExitIntentModal />
+      {/* Reads the path, so it needs its own boundary. See JoinLink. */}
+      <Suspense>
+        <FloatingWhatsAppButton />
+      </Suspense>
+      <ExitIntentModal title={exitModal.title} body={exitModal.body} />
       <CommunityStatusBeacon />
     </>
   );

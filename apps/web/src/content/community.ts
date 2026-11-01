@@ -181,3 +181,25 @@ export function getSocialProofItems({ community }: SiteConfig): string[] {
   }
   return items;
 }
+
+export type JoinOverrides = Partial<{
+  [Key in keyof CommunityCopy["join"]]: CommunityCopy["join"][Key] | null;
+}>;
+
+/** Applies CMS copy over the defaults. Anything left empty keeps its default. */
+export function applyJoinOverrides(
+  defaults: CommunityCopy["join"],
+  overrides: JoinOverrides | null,
+): CommunityCopy["join"] {
+  const text = (key: Exclude<keyof CommunityCopy["join"], "benefits">) =>
+    overrides?.[key]?.trim() || defaults[key];
+  return {
+    badge: text("badge"),
+    headline: text("headline"),
+    subhead: text("subhead"),
+    offerTitle: text("offerTitle"),
+    offerBody: text("offerBody"),
+    closingHeadline: text("closingHeadline"),
+    benefits: overrides?.benefits?.length ? overrides.benefits : defaults.benefits,
+  };
+}

@@ -19,33 +19,46 @@ export type ListingFilters = {
   area: string;
   deal: "" | "sale" | "month";
   beds: number;
+  acres: number;
+  title: "" | "freehold" | "leasehold";
 };
 
 export function parseFilters(search: string): ListingFilters {
   const params = new URLSearchParams(search);
   const deal = params.get("deal");
   const beds = Number(params.get("beds"));
+  const acres = Number(params.get("acres"));
+  const title = params.get("title");
   return {
     area: params.get("area") ?? "",
     deal: deal === "sale" || deal === "month" ? deal : "",
     beds: Number.isInteger(beds) && beds > 0 ? beds : 0,
+    acres: Number.isFinite(acres) && acres > 0 ? acres : 0,
+    title: title === "freehold" || title === "leasehold" ? title : "",
   };
 }
 
-export function serializeFilters({ area, deal, beds }: ListingFilters): string {
+export function serializeFilters({ area, deal, beds, acres, title }: ListingFilters): string {
   const params = new URLSearchParams();
   if (area) params.set("area", area);
   if (deal) params.set("deal", deal);
   if (beds) params.set("beds", String(beds));
+  if (acres) params.set("acres", String(acres));
+  if (title) params.set("title", title);
   return params.toString();
 }
 
-export function filterListings(listings: PublicListing[], { area, deal, beds }: ListingFilters) {
+export function filterListings(
+  listings: PublicListing[],
+  { area, deal, beds, acres, title }: ListingFilters,
+) {
   return listings.filter(
     (listing) =>
       (!area || listing.area === area) &&
       (!deal || listing.price.period === deal) &&
-      (!beds || (listing.specs.beds ?? 0) >= beds),
+      (!beds || (listing.specs.beds ?? 0) >= beds) &&
+      (!acres || (listing.specs.acreage ?? 0) >= acres) &&
+      (!title || listing.specs.titleStatus === title),
   );
 }
 

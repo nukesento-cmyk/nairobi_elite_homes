@@ -41,6 +41,38 @@ export type SiteConfig = {
   contact: { email: string | null; phone: string | null };
 };
 
+/** Numbers marketing can change in the CMS without a deploy. */
+export type CommunitySettings = Partial<
+  Record<"memberCount" | "cap" | "offMarketCount" | "paidPriceKes" | "paidPriceUsd", number | null>
+>;
+
+function calculateSpotsLeft(memberCount: number | null, cap: number | null): number | null {
+  return memberCount !== null && cap !== null ? Math.max(cap - memberCount, 0) : null;
+}
+
+/** Applies CMS settings over the env values. Anything left empty in the CMS keeps its env value. */
+export function applyCommunitySettings(
+  config: SiteConfig,
+  settings: CommunitySettings | null,
+): SiteConfig {
+  if (!settings) return config;
+  const pick = (key: keyof CommunitySettings) => settings[key] ?? config.community[key];
+  const memberCount = pick("memberCount");
+  const cap = pick("cap");
+  return {
+    ...config,
+    community: {
+      ...config.community,
+      memberCount,
+      cap,
+      offMarketCount: pick("offMarketCount"),
+      paidPriceKes: pick("paidPriceKes"),
+      paidPriceUsd: pick("paidPriceUsd"),
+      spotsLeft: calculateSpotsLeft(memberCount, cap),
+    },
+  };
+}
+
 function optional(value: RawValue): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -107,8 +139,7 @@ export function parseSiteConfig(env: RawSiteEnv): SiteConfig {
       memberCount,
       cap,
       offMarketCount: parseCount("NEXT_PUBLIC_COMMUNITY_OFF_MARKET_COUNT", env.offMarketCount),
-      spotsLeft:
-        memberCount !== null && cap !== null ? Math.max(cap - memberCount, 0) : null,
+      spotsLeft: calculateSpotsLeft(memberCount, cap),
       paidPriceKes: parseCount("NEXT_PUBLIC_COMMUNITY_PAID_PRICE_KES", env.paidPriceKes),
       paidPriceUsd: parseCount("NEXT_PUBLIC_COMMUNITY_PAID_PRICE_USD", env.paidPriceUsd),
     },

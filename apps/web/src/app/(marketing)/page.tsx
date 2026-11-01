@@ -38,12 +38,20 @@ export default async function HomePage() {
             <h2 id="listings-heading" className="text-4xl text-bone-50 md:text-5xl">
               Listings
             </h2>
-            <Link
-              href="/homes"
-              className="text-copper-400 underline decoration-copper/50 underline-offset-4 hover:text-bone-50"
-            >
-              View all homes <span aria-hidden="true">→</span>
-            </Link>
+            <div className="flex gap-6">
+              <Link
+                href="/homes"
+                className="text-copper-400 underline decoration-copper/50 underline-offset-4 hover:text-bone-50"
+              >
+                All homes <span aria-hidden="true">→</span>
+              </Link>
+              <Link
+                href="/land"
+                className="text-copper-400 underline decoration-copper/50 underline-offset-4 hover:text-bone-50"
+              >
+                All land <span aria-hidden="true">→</span>
+              </Link>
+            </div>
           </div>
           <PropertyGrid
             entries={mergeTeasers(listings.slice(0, HOME_LISTING_COUNT), teasers.slice(0, 3))}

@@ -1,8 +1,8 @@
-import { site } from "@/config/site";
+import { getLiveSite } from "@/lib/cms";
 
 /** Shown only during founding, and only with real numbers and spots still open. */
-export function SpotsProgress() {
-  const { status, memberCount, cap, spotsLeft } = site.community;
+export async function SpotsProgress() {
+  const { status, memberCount, cap, spotsLeft } = (await getLiveSite()).community;
   if (status !== "founding" || memberCount === null || !cap || !spotsLeft) return null;
 
   const label = `${memberCount.toLocaleString("en-US")} of ${cap.toLocaleString("en-US")} founding spots taken`;

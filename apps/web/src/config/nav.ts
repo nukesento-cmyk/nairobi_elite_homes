@@ -8,7 +8,7 @@ export type NavItem = {
 const navItems: NavItem[] = [
   { label: "Why join", href: "/join", live: true },
   { label: "Homes", href: "/homes", live: true },
-  { label: "Land", href: "/land", live: false },
+  { label: "Land", href: "/land", live: true },
   { label: "About", href: "/about", live: false },
 ];
 

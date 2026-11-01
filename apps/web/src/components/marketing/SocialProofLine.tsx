@@ -1,8 +1,8 @@
-import { site } from "@/config/site";
 import { getSocialProofItems } from "@/content/community";
+import { getLiveSite } from "@/lib/cms";
 
-export function SocialProofLine() {
-  const items = getSocialProofItems(site);
+export async function SocialProofLine() {
+  const items = getSocialProofItems(await getLiveSite());
   if (items.length === 0) return null;
 
   return <p className="text-sm text-bone-200">{items.join(" · ")}</p>;

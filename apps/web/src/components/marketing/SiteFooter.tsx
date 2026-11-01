@@ -4,20 +4,22 @@ import { buttonVariants } from "@/components/ui/button";
 import { primaryNav } from "@/config/nav";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
+import { getCommunities } from "@/lib/cms";
 
 import { JoinLink } from "./JoinLink";
 
 const linkClass = "transition-colors hover:text-copper-400";
 const headingClass = "mb-3 text-xs font-medium tracking-widest text-bone-200 uppercase";
 
-export function SiteFooter() {
+export async function SiteFooter() {
   const { cta } = getCommunityCopy(site);
+  const communities = await getCommunities();
   const { email, phone } = site.contact;
 
   return (
     // Extra space on phones so the floating button never covers footer links.
     <footer className="border-t border-border pb-24 md:pb-0">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[2fr_1fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
         <div>
           <p className="font-heading text-xl text-bone-50">{site.name}</p>
           <p className="mt-3 mb-6 max-w-sm text-sm text-bone-200">
@@ -43,6 +45,19 @@ export function SiteFooter() {
             </ul>
           </div>
         )}
+
+        <div>
+          <h2 className={headingClass}>Areas</h2>
+          <ul className="space-y-2 text-sm">
+            {communities.map((community) => (
+              <li key={community.slug}>
+                <Link href={`/communities/${community.slug}`} className={linkClass}>
+                  {community.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
 
         {(email || phone) && (
           <div>

@@ -11,7 +11,7 @@ import { track } from "@/lib/analytics";
 import { JoinLink } from "./JoinLink";
 
 const STORAGE_KEY = "neh-exit-modal-shown";
-const { exitModal, cta } = getCommunityCopy(site);
+const { cta } = getCommunityCopy(site);
 
 function alreadyShown(): boolean {
   try {
@@ -21,7 +21,9 @@ function alreadyShown(): boolean {
   }
 }
 
-export function ExitIntentModal() {
+type ExitIntentModalProps = { title: string; body: string };
+
+export function ExitIntentModal({ title, body }: ExitIntentModalProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const clicked = useRef(false);
 
@@ -61,9 +63,9 @@ export function ExitIntentModal() {
         </button>
       </form>
       <h2 id="exit-modal-title" className="pr-8 font-heading text-3xl">
-        {exitModal.title}
+        {title}
       </h2>
-      <p className="mt-3 mb-6 text-bone-200">{exitModal.body}</p>
+      <p className="mt-3 mb-6 text-bone-200">{body}</p>
       <JoinLink
         source="exit_modal"
         placement="exit_modal"

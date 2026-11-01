@@ -17,7 +17,7 @@ type FormState =
   | { status: "error"; message: string; fields: Record<string, string[] | undefined> };
 
 const fieldClass =
-  "mt-1.5 h-11 w-full rounded-lg border border-input bg-forest-950 px-3 text-sm text-bone-50 focus-visible:outline-2 focus-visible:outline-copper-400";
+  "mt-1.5 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-bone-50 focus-visible:outline-2 focus-visible:outline-copper-400";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 

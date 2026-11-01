@@ -1,6 +1,7 @@
 import { Check, MapPin } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
@@ -12,7 +13,7 @@ import { PropertyGallery } from "@/components/property/PropertyGallery";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
-import { getListing, getPublicSlugs } from "@/lib/cms";
+import { getCommunities, getListing, getPublicSlugs } from "@/lib/cms";
 import { listingJsonLd } from "@/lib/json-ld";
 import { formatPrice, formatSpecs } from "@/lib/listings";
 
@@ -66,6 +67,7 @@ async function ListingContent({ params }: ListingPageProps) {
   if (!listing) notFound();
 
   const { listingGate } = getCommunityCopy(site);
+  const community = (await getCommunities()).find(({ name }) => name === listing.area);
   const specs = formatSpecs(listing.specs);
   const facts = [
     listing.specs.titleStatus && `Title: ${listing.specs.titleStatus}`,
@@ -73,7 +75,7 @@ async function ListingContent({ params }: ListingPageProps) {
   ].filter((fact) => typeof fact === "string");
 
   return (
-    <article>
+    <article className={listing.vertical === "land" ? "vertical-land bg-background" : undefined}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: listingJsonLd(listing) }}
@@ -102,7 +104,19 @@ async function ListingContent({ params }: ListingPageProps) {
               Sample listing
             </p>
           )}
-          <p className="text-bone-200">{listing.area}, Nairobi</p>
+          <p className="text-bone-200">
+            {community ? (
+              <Link
+                href={`/communities/${community.slug}`}
+                className="underline decoration-copper/50 underline-offset-4 hover:text-bone-50"
+              >
+                {listing.area}
+              </Link>
+            ) : (
+              listing.area
+            )}
+            , Nairobi
+          </p>
           <h1 className="mt-2 text-4xl text-bone-50 md:text-6xl">{listing.title}</h1>
           <p className="mt-4 text-2xl font-medium text-copper-400">{formatPrice(listing.price)}</p>
           {specs && <p className="mt-2 text-lg text-bone-200">{specs}</p>}

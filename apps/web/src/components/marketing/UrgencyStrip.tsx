@@ -1,13 +1,13 @@
-import { site, type SiteConfig } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
+import { getLiveSite } from "@/lib/cms";
 import { cn } from "@/lib/utils";
 import { restoreDismissalScript } from "@/lib/strip-dismissal";
 
 import { JoinLink } from "./JoinLink";
 import { StripDismissButton } from "./StripDismissButton";
 
-export function UrgencyStrip({ config = site }: { config?: SiteConfig }) {
-  const { strip } = getCommunityCopy(config);
+export async function UrgencyStrip() {
+  const { strip } = getCommunityCopy(await getLiveSite());
 
   return (
     <>
