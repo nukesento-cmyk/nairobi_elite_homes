@@ -8,6 +8,7 @@
     "lint": "pnpm --filter web lint",
     "typecheck": "pnpm --filter web typecheck",
     "test": "pnpm --filter web test",
-    "seed-admins": "pnpm --filter web seed-admins"
+    "seed-admins": "pnpm --filter web seed-admins",
+    "seed-blogs": "pnpm --filter web seed-blogs"
   }
 }

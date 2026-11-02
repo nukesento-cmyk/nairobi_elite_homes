@@ -6,12 +6,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AdminError, type Admin, type Db } from "@/lib/admin/accounts";
 import {
+  accessRequestStats,
   createAccessRequest,
   deleteAccessRequest,
   listAccessRequests,
   setAccessRequestStatus,
 } from "@/lib/access-requests";
 import { profileFromIdToken } from "@/lib/auth/google";
+import { estimateBread, formatBread } from "@/lib/bread";
 import {
   createBuyerSession,
   deleteBuyerSession,
@@ -262,6 +264,34 @@ describe("community link requests", () => {
     ["a long message", { message: "x".repeat(501) }],
   ])("refuses %s", async (_, change) => {
     await expect(createAccessRequest(db, { ...request, ...change })).rejects.toThrow(AdminError);
+  });
+});
+
+describe("request stats and bread", () => {
+  const request = { email: "", message: "", name: "Ann Buyer" };
+
+  it("counts every status, and fills 14 days including today", async () => {
+    await createAccessRequest(db, { ...request, phone: "0700000001" });
+    await createAccessRequest(db, { ...request, phone: "0700000002" });
+    await createAccessRequest(db, { ...request, phone: "0700000003" });
+    const rows = await listAccessRequests(db, staff("admin"));
+    await setAccessRequestStatus(db, staff("admin"), rows[0].id, "link_sent");
+    await setAccessRequestStatus(db, staff("admin"), rows[1].id, "declined");
+    const stats = await accessRequestStats(db, staff("superadmin"));
+    expect(stats).toMatchObject({ total: 3, pending: 1, linkSent: 1, declined: 1 });
+    expect(stats.daily.length).toBe(14);
+    expect(stats.daily.at(-1)?.count).toBe(3);
+    expect(stats.daily.slice(0, -1).every(({ count }) => count === 0)).toBe(true);
+    expect(estimateBread(stats, 2500)).toEqual({ potential: 5000, potentialPeople: 2, linkSent: 2500, price: 2500 });
+  });
+
+  it("keeps stats from reviewers, and gives no bread without a price", async () => {
+    await expect(accessRequestStats(db, reviewer)).rejects.toThrow(AdminError);
+    const stats = await accessRequestStats(db, staff("admin"));
+    expect(stats.total).toBe(0);
+    expect(estimateBread(stats, null)).toBeNull();
+    expect(estimateBread(stats, 2500)?.potential).toBe(0);
+    expect(formatBread(70000)).toBe("KES 70,000");
   });
 });
 

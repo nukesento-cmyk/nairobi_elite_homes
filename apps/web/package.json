@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check-revalidation": "node scripts/check-revalidation.mjs",
-    "seed-admins": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local scripts/seed-admins.mjs"
+    "seed-admins": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local scripts/seed-admins.mjs",
+    "seed-blogs": "node --env-file-if-exists=.env.local scripts/seed-blogs.mjs"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.6.3",

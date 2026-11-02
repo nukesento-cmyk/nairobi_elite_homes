@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { LeadForm } from "@/components/marketing/LeadForm";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
+import { isLeadFormAvailable } from "@/lib/lead-config";
 import { directChatLink } from "@/lib/whatsapp";
 import { pageMetadata } from "@/lib/seo";
 
@@ -21,7 +22,7 @@ export default function ContactPage() {
       <div>
         <h1 className="text-5xl text-bone-50 md:text-7xl">Contact</h1>
         <p className="mt-4 mb-8 max-w-xl text-lg text-bone-200">
-          Tell us what you&apos;re looking for, or message us directly on WhatsApp.
+          Tell us what you&apos;re looking for on WhatsApp.
         </p>
         <a
           href={directChatLink("Hello, I have a question about property in Nairobi.")}
@@ -48,10 +49,12 @@ export default function ContactPage() {
           )}
         </ul>
       </div>
-      <div className="rounded-xl border border-border p-6">
-        <h2 className="text-2xl text-bone-50">Send us a message</h2>
-        <LeadForm source="contact_page" />
-      </div>
+      {isLeadFormAvailable() && (
+        <div className="rounded-xl border border-border p-6">
+          <h2 className="text-2xl text-bone-50">Send us a message</h2>
+          <LeadForm source="contact_page" />
+        </div>
+      )}
     </section>
   );
 }

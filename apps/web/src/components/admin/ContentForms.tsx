@@ -169,7 +169,7 @@ function PropertyForm({ property, uploads }: { property?: PropertyRow; uploads: 
         </select>
       </label>
       <label className={labelClass}>
-        Price
+        Bread
         <input name="priceAmount" type="number" min="1" step="any" required defaultValue={property?.priceAmount} className={fieldClass} />
       </label>
       <label className={labelClass}>
@@ -303,7 +303,7 @@ function PostForm({ post, uploads }: { post?: Post; uploads: boolean }) {
         <textarea name="excerpt" rows={2} required defaultValue={post?.excerpt} className={fieldClass} />
       </label>
       <label className={labelClass}>
-        Post
+        Post. Start with a direct answer. Use &quot;## &quot; for headings, &quot;- &quot; for lists, **bold**, and [words](/link). A &quot;## Frequently asked questions&quot; section with &quot;### &quot; questions is picked up by search engines.
         <textarea name="body" rows={10} required defaultValue={post?.body} className={fieldClass} />
       </label>
       <PhotoField name="coverUrl" label="Cover photo" defaultValue={post?.coverUrl ?? ""} uploads={uploads} />

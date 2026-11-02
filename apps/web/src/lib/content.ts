@@ -48,7 +48,7 @@ const propertySchema = z.object({
   vertical: z.enum(["residential", "land", "commercial"], "Choose a type."),
   status: z.enum(["public", "off_market", "members_only"], "Choose who can see it."),
   area: z.enum(LEAD_AREAS, "Choose an area."),
-  priceAmount: z.coerce.number("Enter a price.").positive("Enter a price."),
+  priceAmount: z.coerce.number("Enter the bread amount.").positive("Enter the bread amount."),
   priceCurrency: z.enum(["KES", "USD"]),
   pricePeriod: z.enum(["sale", "month"]),
   beds: optionalNumber,

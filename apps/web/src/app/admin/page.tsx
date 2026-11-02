@@ -10,6 +10,7 @@ import {
   ResetPasswordForm,
 } from "@/components/admin/AdminForms";
 import { DeleteItem, PostManager, PropertyManager } from "@/components/admin/ContentForms";
+import { AdminOverview } from "@/components/admin/AdminOverview";
 import { RequestRow, ReviewItem } from "@/components/admin/ReviewForms";
 import { deletePostAction, deletePropertyAction } from "@/app/admin/content-actions";
 import {
@@ -21,7 +22,8 @@ import {
   listAdmins,
   manageableRoles,
 } from "@/lib/admin/accounts";
-import { listAccessRequests } from "@/lib/access-requests";
+import { accessRequestStats, listAccessRequests } from "@/lib/access-requests";
+import { getLiveSite } from "@/lib/cms";
 import { liveContent, listPosts, listProperties, reviewQueue } from "@/lib/content";
 import { formatPrice, formatSpecs } from "@/lib/listings";
 import { chatWithNumber } from "@/lib/whatsapp";
@@ -71,11 +73,31 @@ async function Dashboard() {
     ? await Promise.all([listAccessRequests(db, me), reviewQueue(db, me)])
     : [[], { properties: [], posts: [] }];
   const live = canRemoveContent(me) && !canManageContent(me) ? await liveContent(db, me) : null;
-  const waiting = requests.filter(({ status }) => status === "pending").length;
+  const stats = canReview(me) ? await accessRequestStats(db, me) : null;
+  const monthlyPrice = (await getLiveSite()).community.paidPriceKes;
+  const queueCount = queue.properties.length + queue.posts.length;
+  const sections = [
+    canReview(me) && { href: "#overview", label: "Overview" },
+    canReview(me) && { href: "#requests", label: `Requests (${stats?.pending ?? 0})` },
+    canReview(me) && { href: "#approvals", label: `Approvals (${queueCount})` },
+    live && { href: "#live", label: "Live" },
+    roles.length > 0 && { href: "#accounts", label: "Accounts" },
+    { href: "#password", label: "Password" },
+  ].filter((item) => item !== false && item !== null);
 
   return (
     <>
       {header}
+
+      <nav aria-label="Dashboard sections" className="mb-10 flex flex-wrap gap-2 border-b border-border pb-4">
+        {sections.map(({ href, label }) => (
+          <a key={href} href={href} className="rounded-full border border-border px-4 py-1.5 text-sm text-bone-100 transition-colors hover:border-copper hover:text-copper-400">
+            {label}
+          </a>
+        ))}
+      </nav>
+
+      {stats && <AdminOverview stats={stats} monthlyPrice={monthlyPrice} />}
 
       {canManageContent(me) && (
         <>
@@ -85,8 +107,24 @@ async function Dashboard() {
       )}
 
       {canReview(me) && (
-        <>
-          <section className="mb-14" aria-labelledby="review-heading">
+        <div className="grid gap-x-10 lg:grid-cols-2 lg:items-start">
+          <section id="requests" className="mb-14 scroll-mt-6 lg:order-1" aria-labelledby="requests-heading">
+            <h2 id="requests-heading" className="mb-4 text-2xl text-bone-50">
+              Requests to join ({stats?.pending ?? 0} waiting)
+            </h2>
+            {requests.length === 0 && <p className="text-bone-200">No requests yet.</p>}
+            <ul className="space-y-3">
+              {requests.map((request) => (
+                <RequestRow
+                  key={request.id}
+                  request={{ ...request, createdAt: new Date(request.createdAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Nairobi" }) }}
+                  chatUrl={chatWithNumber(request.phone, `Hi ${request.name}, thanks for asking about the NairobiEliteHomes private community.`)}
+                />
+              ))}
+            </ul>
+          </section>
+
+          <section id="approvals" className="mb-14 scroll-mt-6 lg:order-2" aria-labelledby="review-heading">
             <h2 id="review-heading" className="mb-4 text-2xl text-bone-50">
               Waiting for approval ({queue.properties.length + queue.posts.length})
             </h2>
@@ -100,7 +138,7 @@ async function Dashboard() {
                   title={item.title}
                   meta={[
                     `${item.area} · ${item.status.replace("_", " ")}`,
-                    formatPrice({ amount: Number(item.priceAmount), currency: item.priceCurrency, period: item.pricePeriod }),
+                    `Bread: ${formatPrice({ amount: Number(item.priceAmount), currency: item.priceCurrency, period: item.pricePeriod })}`,
                     formatSpecs({ beds: item.beds, baths: item.baths, acreage: item.acreage ? Number(item.acreage) : null, sqm: item.sqm }),
                   ].filter(Boolean)}
                   body={item.description}
@@ -112,27 +150,11 @@ async function Dashboard() {
               ))}
             </ul>
           </section>
-
-          <section className="mb-14" aria-labelledby="requests-heading">
-            <h2 id="requests-heading" className="mb-4 text-2xl text-bone-50">
-              Community link requests ({waiting} waiting)
-            </h2>
-            {requests.length === 0 && <p className="text-bone-200">No requests yet.</p>}
-            <ul className="space-y-3">
-              {requests.map((request) => (
-                <RequestRow
-                  key={request.id}
-                  request={{ ...request, createdAt: new Date(request.createdAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Nairobi" }) }}
-                  chatUrl={chatWithNumber(request.phone, `Hi ${request.name}, thanks for asking about the NairobiEliteHomes private community.`)}
-                />
-              ))}
-            </ul>
-          </section>
-        </>
+        </div>
       )}
 
       {live && (
-        <section className="mb-14" aria-labelledby="live-heading">
+        <section id="live" className="mb-14 scroll-mt-6" aria-labelledby="live-heading">
           <h2 id="live-heading" className="mb-4 text-2xl text-bone-50">Live on the site</h2>
           {live.properties.length + live.posts.length === 0 && <p className="text-bone-200">Nothing yet.</p>}
           <ul className="space-y-3">
@@ -153,9 +175,9 @@ async function Dashboard() {
       )}
 
       {(roles.length > 0 || !canManageContent(me)) && (
-        <>
+        <section id="accounts" className="scroll-mt-6">
         <h2 className="mb-4 text-2xl text-bone-50">Accounts</h2>
-        <ul className="space-y-4">
+        <ul className="grid gap-4 md:grid-cols-2">
           {accounts.map((admin) => (
             <li key={admin.id} className="rounded-xl border border-border p-5">
               <p className="text-lg text-bone-50">
@@ -182,7 +204,7 @@ async function Dashboard() {
             </li>
           ))}
         </ul>
-        </>
+        </section>
       )}
 
       {roles.length > 0 && (
@@ -194,7 +216,7 @@ async function Dashboard() {
         </section>
       )}
 
-      <section className="mt-12">
+      <section id="password" className="mt-12 scroll-mt-6">
         <h2 className="mb-4 text-2xl text-bone-50">Change your password</h2>
         <ChangePasswordForm />
       </section>

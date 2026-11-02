@@ -28,6 +28,10 @@ While `NEXT_PUBLIC_COMMUNITY_STATUS` is `closed`, the group link isn't anywhere 
 
 The homepage counts approved off-market and members-only listings itself, and shows nothing while there are none. There's no number to type in.
 
+## Bread
+
+Money on the dashboard is called bread. The headline figure is an estimate: requests not declined, multiplied by the monthly price (`NEXT_PUBLIC_COMMUNITY_PAID_PRICE_KES` or Community Settings). No payments are collected, so it isn't income.
+
 ## Signing in
 
 - **Buyers** use "Continue with Google" at `/account`. There's no password, and no second step.

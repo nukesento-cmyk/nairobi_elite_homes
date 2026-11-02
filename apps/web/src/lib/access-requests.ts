@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { AdminError, canReview, type Admin, type Db } from "@/lib/admin/accounts";
+import type { RequestStats } from "@/lib/bread";
 
 export type AccessRequest = {
   id: string;
@@ -62,3 +63,31 @@ export async function deleteAccessRequest(db: Db, actor: Admin, id: string): Pro
   if (!z.uuid().safeParse(id).success) throw new AdminError("That request no longer exists.");
   await db.query(`DELETE FROM access_requests WHERE id = $1`, [id]);
 }
+
+/** Counted in the database, so totals stay right however many requests there are. */
+export async function accessRequestStats(db: Db, actor: Admin): Promise<RequestStats> {
+  requireAdminRole(actor);
+  const [totals] = await db.query<Record<"total" | "pending" | "linkSent" | "declined", string | number>>(
+    `SELECT count(*) AS total,
+       count(*) FILTER (WHERE status = 'pending') AS pending,
+       count(*) FILTER (WHERE status = 'link_sent') AS "linkSent",
+       count(*) FILTER (WHERE status = 'declined') AS declined
+     FROM access_requests`,
+  );
+  const daily = await db.query<{ day: string; count: string | number }>(
+    `WITH today AS (SELECT (now() AT TIME ZONE 'Africa/Nairobi')::date AS d)
+     SELECT to_char(series.day, 'YYYY-MM-DD') AS day, count(r.id) AS count
+     FROM today, generate_series(today.d - 13, today.d, interval '1 day') AS series(day)
+     LEFT JOIN access_requests r
+       ON (r.created_at AT TIME ZONE 'Africa/Nairobi')::date = series.day::date
+     GROUP BY series.day ORDER BY series.day`,
+  );
+  return {
+    total: Number(totals.total),
+    pending: Number(totals.pending),
+    linkSent: Number(totals.linkSent),
+    declined: Number(totals.declined),
+    daily: daily.map(({ day, count }) => ({ day, count: Number(count) })),
+  };
+}
+

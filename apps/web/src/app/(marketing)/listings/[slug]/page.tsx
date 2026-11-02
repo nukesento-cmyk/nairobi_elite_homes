@@ -15,6 +15,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
 import { getCommunities, getListing, getPublicSlugs } from "@/lib/cms";
+import { isLeadFormAvailable } from "@/lib/lead-config";
 import { matterportEmbedUrl } from "@/lib/embeds";
 import { listingJsonLd } from "@/lib/json-ld";
 import { formatPrice, formatSpecs } from "@/lib/listings";
@@ -201,10 +202,12 @@ async function ListingContent({ params }: ListingPageProps) {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border p-6">
-            <h2 className="text-2xl text-bone-50">Ask about this listing</h2>
-            <LeadForm source="listing_detail" listing={listing.slug} />
-          </div>
+          {isLeadFormAvailable() && (
+            <div className="rounded-xl border border-border p-6">
+              <h2 className="text-2xl text-bone-50">Ask about this listing</h2>
+              <LeadForm source="listing_detail" listing={listing.slug} />
+            </div>
+          )}
         </aside>
       </div>
 

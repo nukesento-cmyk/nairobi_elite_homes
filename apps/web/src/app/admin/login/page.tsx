@@ -38,7 +38,7 @@ async function LoginContent({ searchParams }: LoginProps) {
 
 export default function AdminLoginPage({ searchParams }: LoginProps) {
   return (
-    <div className="mx-auto max-w-sm">
+    <div className="mx-auto mt-10 max-w-sm">
       <h1 className="mb-8 text-4xl text-bone-50">Staff sign in</h1>
       <Suspense>
         <LoginContent searchParams={searchParams} />

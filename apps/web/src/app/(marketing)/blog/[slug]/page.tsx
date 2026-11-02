@@ -4,7 +4,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
+import { BlogBody, extractFaqs } from "@/lib/blog-markup";
 import { getBlogPost, getBlogPosts } from "@/lib/cms";
+import { blogPostingJsonLd } from "@/lib/json-ld";
 import { pageMetadata } from "@/lib/seo";
 
 type BlogPostProps = { params: Promise<{ slug: string }> };
@@ -20,7 +22,16 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: BlogPostProps): Promise<Metadata> {
   const post = await getBlogPost((await params).slug);
   if (!post) return { title: "Post not found", robots: { index: false } };
-  return pageMetadata({ title: post.title, description: post.excerpt, path: `/blog/${post.slug}` });
+  const metadata = pageMetadata({ title: post.title, description: post.excerpt, path: `/blog/${post.slug}` });
+  return {
+    ...metadata,
+    openGraph: {
+      ...metadata.openGraph,
+      type: "article",
+      publishedTime: post.publishedAt ? new Date(post.publishedAt).toISOString() : undefined,
+      modifiedTime: new Date(post.updatedAt).toISOString(),
+    },
+  };
 }
 
 async function PostContent({ params }: BlogPostProps) {
@@ -29,6 +40,7 @@ async function PostContent({ params }: BlogPostProps) {
 
   return (
     <article className="mx-auto max-w-3xl px-4 py-14 sm:px-6 md:py-20">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: blogPostingJsonLd(post, extractFaqs(post.body)) }} />
       <Link href="/blog" className="text-sm text-copper-400 underline underline-offset-4">
         <span aria-hidden="true">←</span> Blog
       </Link>
@@ -39,12 +51,19 @@ async function PostContent({ params }: BlogPostProps) {
         </p>
       )}
       {post.coverUrl && (
-        <div className="relative mt-8 aspect-16/9 overflow-hidden rounded-xl">
+        <div className="relative mt-8 aspect-[21/8] overflow-hidden rounded-xl">
           <Image src={post.coverUrl} alt={post.coverAlt ?? ""} fill preload sizes="(min-width: 768px) 768px, 100vw" className="object-cover" />
         </div>
       )}
-      {/* Plain text only, so nothing typed into a post can run as code on this page. */}
-      <div className="mt-8 text-lg leading-relaxed whitespace-pre-line text-bone-100">{post.body}</div>
+      <BlogBody body={post.body} />
+      <div className="mt-12 rounded-xl border border-border p-6">
+        <p className="text-xl text-bone-50">Looking for property in Nairobi?</p>
+        <div className="mt-3 flex flex-wrap gap-5 text-copper-400">
+          <Link href="/homes" className="underline underline-offset-4">Browse homes</Link>
+          <Link href="/land" className="underline underline-offset-4">Browse land</Link>
+          <Link href="/areas" className="underline underline-offset-4">Compare areas</Link>
+        </div>
+      </div>
     </article>
   );
 }

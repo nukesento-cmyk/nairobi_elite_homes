@@ -12,6 +12,7 @@ import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
 import { getJoinCopy, getTestimonials, getWhyJoinCards } from "@/lib/cms";
 import { isDatabaseConfigured } from "@/lib/db";
+import { isLeadFormAvailable } from "@/lib/lead-config";
 import { pageMetadata } from "@/lib/seo";
 import { directChatLink } from "@/lib/whatsapp";
 
@@ -134,6 +135,7 @@ export default async function JoinPage() {
         </section>
       )}
 
+      {isLeadFormAvailable() && (
       <section aria-labelledby="lead-form" className="pb-section">
         <div className="mx-auto max-w-xl px-4 sm:px-6">
           <h2 id="lead-form" className="text-4xl text-bone-50 md:text-5xl">
@@ -143,6 +145,7 @@ export default async function JoinPage() {
           <LeadForm source="join_page" />
         </div>
       </section>
+      )}
 
       <section className="grain relative bg-forest-900 py-section">
         <div className="relative mx-auto flex max-w-7xl flex-col items-start gap-8 px-4 sm:px-6">
