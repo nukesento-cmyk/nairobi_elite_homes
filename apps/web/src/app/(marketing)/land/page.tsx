@@ -9,13 +9,14 @@ import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
 import { getPublicListings, getSiteMedia, getTeaserListings } from "@/lib/cms";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Land for sale in Nairobi's premium areas",
   description:
     "Land in Karen, Runda, Rosslyn and more, with title status and zoning shown up front, and what to check before you buy.",
-  alternates: { canonical: "/land" },
-};
+  path: "/land",
+});
 
 const safeguards = [
   {

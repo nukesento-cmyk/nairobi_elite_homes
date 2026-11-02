@@ -33,3 +33,10 @@ export function track<Name extends keyof AnalyticsEvents>(
     console.debug("[analytics]", name, props);
   }
 }
+
+/** Survives the page being left, which a join click usually does. Fails silently. */
+export function reportJoinClick(source: string, placement: string): void {
+  if (typeof navigator.sendBeacon !== "function") return;
+  const body = JSON.stringify({ event: "clicked_join", source, placement });
+  navigator.sendBeacon("/api/lead", new Blob([body], { type: "application/json" }));
+}

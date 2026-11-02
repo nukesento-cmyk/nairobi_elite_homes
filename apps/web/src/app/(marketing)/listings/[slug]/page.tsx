@@ -18,6 +18,7 @@ import { getCommunities, getListing, getPublicSlugs } from "@/lib/cms";
 import { matterportEmbedUrl } from "@/lib/embeds";
 import { listingJsonLd } from "@/lib/json-ld";
 import { formatPrice, formatSpecs } from "@/lib/listings";
+import { pageMetadata } from "@/lib/seo";
 
 type ListingPageProps = { params: Promise<{ slug: string }> };
 
@@ -34,13 +35,16 @@ export async function generateMetadata({ params }: ListingPageProps): Promise<Me
   const listing = await getListing((await params).slug);
   if (!listing) return { title: "Listing not found", robots: { index: false } };
 
-  const title = `${listing.title} in ${listing.area}`;
-  const description = `${formatPrice(listing.price)}. ${formatSpecs(listing.specs)}. ${listing.area}, Nairobi.`;
-  const image = `/api/og?slug=${encodeURIComponent(listing.slug)}`;
+  const facts = [formatPrice(listing.price), formatSpecs(listing.specs), `${listing.area}, Nairobi`];
+  const summary = facts.filter(Boolean).join(". ");
+  const description = `${summary}. ${listing.description ?? ""}`.trim().slice(0, 160);
   return {
-    title,
-    description,
-    openGraph: { title, description, images: [{ url: image, width: 1200, height: 630 }] },
+    ...pageMetadata({
+      title: `${listing.title} in ${listing.area}`,
+      description,
+      path: `/listings/${listing.slug}`,
+      image: `/api/og?slug=${encodeURIComponent(listing.slug)}`,
+    }),
     robots: listing.isSample ? { index: false } : undefined,
   };
 }

@@ -10,14 +10,16 @@ import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
 import { getJoinCopy, getTestimonials, getWhyJoinCards } from "@/lib/cms";
+import { pageMetadata } from "@/lib/seo";
 
 const copy = getCommunityCopy(site);
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Join the community",
-  description: copy.join.subhead,
-  alternates: { canonical: "/join" },
-};
+  description:
+    "How the private NairobiEliteHomes community works: off-market homes and land shared first, and what membership gets you.",
+  path: "/join",
+});
 
 export default async function JoinPage() {
   const { cta } = copy;

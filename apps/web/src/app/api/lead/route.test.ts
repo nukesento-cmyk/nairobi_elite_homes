@@ -131,3 +131,47 @@ describe("POST /api/lead", () => {
     expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
   });
 });
+
+describe("clicked_join", () => {
+  const click = { event: "clicked_join", source: "hero", placement: "home_hero" };
+
+  it("logs a valid click with the community status and nothing about the visitor", async () => {
+    const log = vi.spyOn(console, "info").mockImplementation(() => {});
+    const response = await post(click);
+
+    expect(response.status).toBe(204);
+    expect(log).toHaveBeenCalledWith(
+      "clicked_join",
+      expect.objectContaining({ source: "hero", placement: "home_hero", status: expect.any(String) }),
+    );
+    expect(JSON.stringify(log.mock.calls)).not.toContain("10.0.0.");
+    log.mockRestore();
+  });
+
+  it("rejects text that could forge log lines", async () => {
+    const log = vi.spyOn(console, "info").mockImplementation(() => {});
+    const response = await post({ ...click, source: "hero\nclicked_join fake" });
+
+    expect(response.status).toBe(400);
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+
+  it("doesn't use up the visitor's form attempts", async () => {
+    const log = vi.spyOn(console, "info").mockImplementation(() => {});
+    const ip = "10.7.7.7";
+    for (let i = 0; i < 10; i++) await post(click, ip);
+
+    expect((await post({ ...validLead, name: "" }, ip)).status).toBe(400);
+    log.mockRestore();
+  });
+
+  it("limits repeated clicks", async () => {
+    const log = vi.spyOn(console, "info").mockImplementation(() => {});
+    const ip = "10.7.7.8";
+    for (let i = 0; i < 60; i++) await post(click, ip);
+
+    expect((await post(click, ip)).status).toBe(429);
+    log.mockRestore();
+  });
+});

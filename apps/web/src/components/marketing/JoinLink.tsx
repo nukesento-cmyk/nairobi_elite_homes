@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Suspense, type ComponentProps } from "react";
 
 import { site } from "@/config/site";
-import { track } from "@/lib/analytics";
+import { reportJoinClick, track } from "@/lib/analytics";
 import { joinLink } from "@/lib/whatsapp";
 
 type JoinLinkProps = Omit<ComponentProps<"a">, "href" | "target" | "rel"> & {
@@ -25,6 +25,7 @@ function JoinAnchor({
   const href = joinLink(source, onJoinPage);
   const handleClick: JoinLinkProps["onClick"] = (event) => {
     track("join_click", { source, placement });
+    reportJoinClick(source, placement);
     onClick?.(event);
   };
 

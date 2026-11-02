@@ -5,11 +5,38 @@ import { site } from "@/config/site";
 import { getListing } from "@/lib/cms";
 import { formatPrice, formatSpecs } from "@/lib/listings";
 
-// Only draws public listings looked up by slug, never text from the URL, so this
-// can't reveal a gated listing or be used to generate arbitrary images.
+const SIZE = { width: 1200, height: 630 };
+
+function siteCard() {
+  return new ImageResponse(
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: 72,
+        color: colors.bone[50],
+        backgroundImage: `linear-gradient(160deg, ${colors.forest[900]}, ${colors.forest[950]})`,
+      }}
+    >
+      <div style={{ display: "flex", fontSize: 32, color: colors.copper[400] }}>{site.name}</div>
+      <div style={{ display: "flex", fontSize: 76, lineHeight: 1.1 }}>
+        Private access to Nairobi&apos;s most sought-after homes and land.
+      </div>
+    </div>,
+    SIZE,
+  );
+}
+
+// Only draws fixed text or public listings looked up by slug, never text from the URL,
+// so this can't reveal a gated listing or be used to generate arbitrary images.
 export async function GET(request: Request) {
   const slug = new URL(request.url).searchParams.get("slug");
-  const listing = slug ? await getListing(slug) : null;
+  if (!slug) return siteCard();
+
+  const listing = await getListing(slug);
   if (!listing) return new Response("Not found", { status: 404 });
 
   return new ImageResponse(
@@ -38,6 +65,6 @@ export async function GET(request: Request) {
         </div>
       </div>
     </div>,
-    { width: 1200, height: 630 },
+    SIZE,
   );
 }

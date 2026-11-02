@@ -20,3 +20,10 @@ export const leadSchema = z.object({
 });
 
 export type Lead = z.infer<typeof leadSchema>;
+
+/** Sent when a join button is clicked. It holds nothing about the visitor. */
+export const clickedJoinSchema = z.object({
+  event: z.literal("clicked_join"),
+  source: z.string().regex(/^[a-z0-9_]{1,60}$/),
+  placement: z.string().regex(/^[a-z0-9_]{1,60}$/),
+});

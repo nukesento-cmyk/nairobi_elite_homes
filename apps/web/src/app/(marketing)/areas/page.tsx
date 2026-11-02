@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { getCommunities } from "@/lib/cms";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Areas",
   description:
     "What living in Karen, Runda, Kilimani, Rosslyn, Lavington and Muthaiga is like, who each area suits, and what to check before buying.",
-  alternates: { canonical: "/areas" },
-};
+  path: "/areas",
+});
 
 export default async function AreasPage() {
   const communities = await getCommunities();

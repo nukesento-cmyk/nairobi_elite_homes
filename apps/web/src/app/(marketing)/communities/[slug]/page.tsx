@@ -12,6 +12,7 @@ import { communities } from "@/content/communities";
 import { getCommunity, getPublicListings, getTeaserListings } from "@/lib/cms";
 import { communityJsonLd } from "@/lib/json-ld";
 import { mergeTeasers } from "@/lib/listings";
+import { pageMetadata } from "@/lib/seo";
 
 type CommunityPageProps = { params: Promise<{ slug: string }> };
 
@@ -23,11 +24,11 @@ export async function generateMetadata({ params }: CommunityPageProps): Promise<
   const community = await getCommunity((await params).slug);
   if (!community) return { title: "Area not found", robots: { index: false } };
 
-  return {
-    title: `Living in ${community.name}, Nairobi: homes, land and what to check`,
+  return pageMetadata({
+    title: `Living in ${community.name}: homes, land and what to check`,
     description: community.summary,
-    alternates: { canonical: `/communities/${community.slug}` },
-  };
+    path: `/communities/${community.slug}`,
+  });
 }
 
 function CommunityFallback() {

@@ -3,13 +3,14 @@ import type { Metadata } from "next";
 import { SplineScene } from "@/components/motion/SplineScene";
 import { ListingsBrowser } from "@/components/property/ListingsBrowser";
 import { getPublicListings, getSiteMedia, getTeaserListings } from "@/lib/cms";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Homes",
   description:
     "Homes for sale and rent in Karen, Runda, Kilimani, Rosslyn, Lavington and Muthaiga.",
-  alternates: { canonical: "/homes" },
-};
+  path: "/homes",
+});
 
 export default async function HomesPage() {
   const [listings, teasers, { homesScene }] = await Promise.all([

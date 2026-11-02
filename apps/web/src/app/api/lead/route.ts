@@ -1,11 +1,13 @@
 import { Resend } from "resend";
 
-import { leadSchema, type Lead } from "@/lib/lead-schema";
+import { site } from "@/config/site";
+import { clickedJoinSchema, leadSchema, type Lead } from "@/lib/lead-schema";
 import { isRateLimited } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
 
 const MAX_LEADS_PER_WINDOW = 5;
 const WINDOW_MS = 10 * 60 * 1000;
+const MAX_JOIN_CLICKS_PER_WINDOW = 60;
 
 function formatLead(lead: Lead): string {
   return [
@@ -22,11 +24,23 @@ function formatLead(lead: Lead): string {
 
 export async function POST(request: Request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const body: unknown = await request.json().catch(() => null);
+
+  // Counted apart from leads, so clicking around can't use up someone's form attempts.
+  const click = clickedJoinSchema.safeParse(body);
+  if (click.success) {
+    if (isRateLimited(`join:${ip}`, MAX_JOIN_CLICKS_PER_WINDOW, WINDOW_MS)) {
+      return new Response(null, { status: 429 });
+    }
+    // Server-side, so ad blockers can't hide it. The IP is deliberately left out.
+    console.info("clicked_join", { ...click.data, status: site.community.status });
+    return new Response(null, { status: 204 });
+  }
+
   if (isRateLimited(ip, MAX_LEADS_PER_WINDOW, WINDOW_MS)) {
     return Response.json({ error: "Too many requests. Please try again later." }, { status: 429 });
   }
 
-  const body: unknown = await request.json().catch(() => null);
   const parsed = leadSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json(

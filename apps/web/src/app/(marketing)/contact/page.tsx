@@ -4,12 +4,14 @@ import { LeadForm } from "@/components/marketing/LeadForm";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { directChatLink } from "@/lib/whatsapp";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Contact",
-  description: "Talk to NairobiEliteHomes about buying, renting, selling or land in Nairobi.",
-  alternates: { canonical: "/contact" },
-};
+  description:
+    "Talk to NairobiEliteHomes about buying, renting, selling or land in Nairobi.",
+  path: "/contact",
+});
 
 export default function ContactPage() {
   const { email, phone } = site.contact;

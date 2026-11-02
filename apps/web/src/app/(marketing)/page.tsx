@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { HomeHero } from "@/components/marketing/HomeHero";
@@ -5,6 +6,14 @@ import { WhyJoinCards } from "@/components/marketing/WhyJoinCards";
 import { PropertyGrid } from "@/components/property/PropertyGrid";
 import { getPublicListings, getTeaserListings, getWhyJoinCards } from "@/lib/cms";
 import { mergeTeasers } from "@/lib/listings";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Private access to Nairobi's best homes and land",
+  description:
+    "A private community for serious buyers, renters, sellers and landowners in Karen, Runda, Kilimani, Rosslyn, Lavington and Muthaiga.",
+  path: "/",
+});
 
 const HOME_LISTING_COUNT = 9;
 

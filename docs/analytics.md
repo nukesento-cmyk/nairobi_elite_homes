@@ -15,6 +15,10 @@ All events go through `track()` in `apps/web/src/lib/analytics.ts`. **No provide
 | `lead_submitted` | `source` | The lead form is accepted |
 | `exit_modal_shown`, `exit_modal_dismissed`, `exit_modal_clicked` | none | Exit-intent modal, desktop only, once per session |
 
+## Server-side: `clicked_join`
+
+Every join click also posts to `/api/lead`, which writes `clicked_join` with `source`, `placement` and `status` to the server logs. Ad blockers can't hide it, so it can be compared with `join_click`. It records nothing about the visitor. Vercel's Hobby plan keeps logs only briefly, so connect a log drain or analytics provider before relying on these counts.
+
 ### `join_click` sources
 
 | Source | Placement | Where |
