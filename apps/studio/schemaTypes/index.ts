@@ -310,6 +310,7 @@ const joinPage = defineType({
     joinCopyFields("founding", "While founding access is open"),
     joinCopyFields("paid", "When membership is paid"),
     joinCopyFields("waitlist", "When there's a waitlist"),
+    joinCopyFields("closed", "When the community is closed"),
   ],
   preview: { prepare: () => ({ title: "Join Page" }) },
 });

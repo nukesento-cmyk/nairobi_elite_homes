@@ -7,6 +7,7 @@ export function communityLink(
   campaign = "founding_launch",
   config: SiteConfig = site,
 ): string {
+  if (!config.whatsapp.groupUrl) throw new Error("The group link is only available during founding.");
   const url = new URL(config.whatsapp.groupUrl);
   url.searchParams.set("utm_source", source);
   url.searchParams.set("utm_medium", medium);
@@ -22,9 +23,9 @@ export function directChatLink(message: string, config: SiteConfig = site): stri
 
 /**
  * Where a join CTA goes for the current community status. Only `founding` gets
- * the group invite: in `paid` and `waitlist` that link would let people skip
- * the paywall or the queue. Those states send visitors to /join to read the
- * pitch, and from there into a direct chat.
+ * the group invite: in every other state that link would let people skip the
+ * paywall, the queue or the admin. Those states send visitors to /join to read
+ * why, and from there into a direct chat.
  */
 export function joinLink(
   source: string,

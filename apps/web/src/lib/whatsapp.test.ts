@@ -43,11 +43,11 @@ describe("joinLink", () => {
     expect(url.searchParams.get("utm_source")).toBe("footer");
   });
 
-  it.each(["paid", "waitlist"] as const)("sends %s visitors to /join first", (status) => {
+  it.each(["paid", "waitlist", "closed"] as const)("sends %s visitors to /join first", (status) => {
     expect(joinLink("footer", false, configFor(status))).toBe("/join");
   });
 
-  it.each(["paid", "waitlist"] as const)(
+  it.each(["paid", "waitlist", "closed"] as const)(
     "opens a direct chat from /join, never the group invite, when status is %s",
     (status) => {
       const url = new URL(joinLink("join_page", true, configFor(status)));
@@ -56,3 +56,17 @@ describe("joinLink", () => {
     },
   );
 });
+
+describe("outside founding", () => {
+  it.each(["paid", "waitlist", "closed"] as const)("holds no group link when %s", (status) => {
+    const config = configFor(status);
+    expect(config.whatsapp.groupUrl).toBeNull();
+    expect(() => communityLink("hero", "site", "x", config)).toThrow();
+  });
+
+  it("asks the admin for the link when closed", () => {
+    const url = new URL(joinLink("join_page", true, configFor("closed")));
+    expect(url.searchParams.get("text")).toMatch(/request the link/);
+  });
+});
+

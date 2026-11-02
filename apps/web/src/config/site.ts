@@ -1,4 +1,4 @@
-export const COMMUNITY_STATUSES = ["founding", "paid", "waitlist"] as const;
+export const COMMUNITY_STATUSES = ["founding", "paid", "waitlist", "closed"] as const;
 export type CommunityStatus = (typeof COMMUNITY_STATUSES)[number];
 
 type RawValue = string | undefined;
@@ -26,7 +26,11 @@ export type RawSiteEnv = {
 export type SiteConfig = {
   name: string;
   url: string | null;
-  whatsapp: { groupUrl: string; directUrl: string };
+  whatsapp: {
+    /** Only during founding. In every other state the invite must not reach the browser. */
+    groupUrl: string | null;
+    directUrl: string;
+  };
   community: {
     status: CommunityStatus;
     memberCount: number | null;
@@ -114,6 +118,7 @@ function parseStatus(value: RawValue): CommunityStatus {
 export function parseSiteConfig(env: RawSiteEnv): SiteConfig {
   const memberCount = parseCount("NEXT_PUBLIC_COMMUNITY_MEMBER_COUNT", env.memberCount);
   const cap = parseCount("NEXT_PUBLIC_COMMUNITY_CAP", env.cap);
+  const status = parseStatus(env.communityStatus);
 
   const socials = [
     { label: "Instagram", name: "NEXT_PUBLIC_INSTAGRAM_URL", value: env.instagramUrl },
@@ -131,11 +136,14 @@ export function parseSiteConfig(env: RawSiteEnv): SiteConfig {
     name: "NairobiEliteHomes",
     url: optional(env.siteUrl) ? parseUrl("NEXT_PUBLIC_SITE_URL", optional(env.siteUrl)!) : null,
     whatsapp: {
-      groupUrl: requiredUrl("NEXT_PUBLIC_WHATSAPP_GROUP_URL", env.whatsappGroupUrl),
+      groupUrl:
+        status === "founding"
+          ? requiredUrl("NEXT_PUBLIC_WHATSAPP_GROUP_URL", env.whatsappGroupUrl)
+          : null,
       directUrl: requiredUrl("NEXT_PUBLIC_WHATSAPP_DIRECT_URL", env.whatsappDirectUrl),
     },
     community: {
-      status: parseStatus(env.communityStatus),
+      status,
       memberCount,
       cap,
       offMarketCount: parseCount("NEXT_PUBLIC_COMMUNITY_OFF_MARKET_COUNT", env.offMarketCount),

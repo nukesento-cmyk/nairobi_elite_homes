@@ -1,6 +1,8 @@
 import { Lock } from "lucide-react";
 
 import { JoinLink } from "@/components/marketing/JoinLink";
+import { site } from "@/config/site";
+import { getCommunityCopy } from "@/content/community";
 import type { TeaserListing } from "@/lib/cms/types";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +45,7 @@ export function TeaserCard({ teaser }: { teaser: TeaserListing }) {
           placement="listing_grid"
           className="mt-1 inline-block font-medium text-copper-400 after:absolute after:inset-0"
         >
-          <span className="underline-draw">Join to view</span> <span aria-hidden="true">→</span>
+          <span className="underline-draw">{getCommunityCopy(site).teaserCta}</span> <span aria-hidden="true">→</span>
         </JoinLink>
       </div>
     </article>

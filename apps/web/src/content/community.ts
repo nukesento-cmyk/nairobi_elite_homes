@@ -12,6 +12,10 @@ export type CommunityCopy = {
     arrow: "before-cta" | "after-cta";
   };
   cta: { short: string; long: string };
+  /** Label on locked listing cards. */
+  teaserCta: string;
+  /** The card that interrupts the listing grid. */
+  interstitial: { headline: string; body: string };
   /** Prefilled message when the CTA opens a direct chat instead of the group. */
   directMessage: string;
   heroAccess: string;
@@ -36,6 +40,11 @@ const MEMBER_BENEFITS = [
   "Direct contact with owners",
   "Title-status notes and zoning flags on land",
 ];
+
+const DEFAULT_INTERSTITIAL = {
+  headline: "You're only seeing the public listings.",
+  body: "Off-market homes and land are shared in the group first. Join to see them.",
+};
 
 function formatPrice(currency: string, amount: number): string {
   return `${currency} ${amount.toLocaleString("en-US")}/mo`;
@@ -69,6 +78,8 @@ export function getCommunityCopy({ community }: SiteConfig): CommunityCopy {
           arrow: "before-cta",
         },
         cta: { short: "Join free", long: "Join the private community" },
+        teaserCta: "Join to view",
+        interstitial: DEFAULT_INTERSTITIAL,
         directMessage: "Hi, I'd like to join the NairobiEliteHomes community.",
         heroAccess: "Joining is free today. Soon it becomes paid and members-only.",
         listingGate: {
@@ -109,6 +120,8 @@ export function getCommunityCopy({ community }: SiteConfig): CommunityCopy {
           arrow: "after-cta",
         },
         cta: { short: "Become a member", long: "Become a member" },
+        teaserCta: "Join to view",
+        interstitial: DEFAULT_INTERSTITIAL,
         directMessage: "Hi, I'd like to become a NairobiEliteHomes member.",
         heroAccess: paidPrice ? `Membership is ${paidPrice}.` : "Membership is by monthly subscription.",
         listingGate: {
@@ -144,6 +157,8 @@ export function getCommunityCopy({ community }: SiteConfig): CommunityCopy {
           arrow: "after-cta",
         },
         cta: { short: "Join waitlist", long: "Join the waitlist" },
+        teaserCta: "Join to view",
+        interstitial: DEFAULT_INTERSTITIAL,
         directMessage: "Hi, I'd like to join the NairobiEliteHomes waitlist.",
         heroAccess: "Founding spots are full. The waitlist is open.",
         listingGate: {
@@ -163,6 +178,44 @@ export function getCommunityCopy({ community }: SiteConfig): CommunityCopy {
           offerTitle: "What happens next",
           offerBody: "Message us on WhatsApp to join the waitlist. We'll tell you when a place opens.",
           closingHeadline: "Get on the waitlist.",
+        },
+      };
+    case "closed":
+      return {
+        strip: {
+          showStatusDot: false,
+          lead: "The private community is closed —",
+          hideLeadOnPhones: true,
+          highlight: null,
+          tail: null,
+          cta: "Contact an admin",
+          arrow: "after-cta",
+        },
+        cta: { short: "Contact admin", long: "Contact an admin for access" },
+        teaserCta: "Request access",
+        interstitial: {
+          headline: "You're only seeing the public listings.",
+          body: "Off-market homes and land are shared in the private community. Contact an admin to request the link.",
+        },
+        directMessage: "Hi, I'd like to request the link to the NairobiEliteHomes private community.",
+        heroAccess: "The private community is closed. Contact an admin to request the link.",
+        listingGate: {
+          title: "Exact location and owner contact",
+          body: "These are shared in the private community. Contact an admin to request access.",
+          cta: "Contact an admin",
+        },
+        exitModal: {
+          title: "Before you go",
+          body: "The private community is closed, but you can contact an admin to request the link.",
+        },
+        join: {
+          badge: "Closed community",
+          headline: "The private community is by request.",
+          subhead: `${ABOUT} The link isn't public. To get it, contact an admin.`,
+          benefits: MEMBER_BENEFITS,
+          offerTitle: "How to get in",
+          offerBody: "Message an admin on WhatsApp and ask for the link.",
+          closingHeadline: "Ready to ask for the link?",
         },
       };
   }

@@ -12,7 +12,7 @@ Reviewers add properties and blogs at `/admin`, and they appear on the site stra
 | Change their own name, email and password | Yes | Yes | Yes | Google account |
 | Browse the public site, signed in for free | Yes | Yes | Yes | Yes |
 
-Nobody can delete the SuperAdmin, and the database allows only one. A free buyer account gives no access to the private community.
+Nobody can delete the SuperAdmin, and the database allows only one. A free buyer account gives no access to the private community. To get the link, buyers contact an admin on WhatsApp, using the number in `NEXT_PUBLIC_WHATSAPP_DIRECT_URL`, and the admin shares it privately.
 
 ## Signing in
 
