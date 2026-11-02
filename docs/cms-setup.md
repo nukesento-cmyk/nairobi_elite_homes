@@ -62,3 +62,7 @@ Switching `NEXT_PUBLIC_COMMUNITY_STATUS` and swapping WhatsApp links remain env 
 ## Known limit: image files
 
 Sanity serves image files from public URLs, even from a private dataset. The site never sends a gated listing's image URL to the browser, only a tiny blurred placeholder. Anyone who has the full URL could still open that image, so don't paste those URLs anywhere public.
+
+## Going live
+
+While `NEXT_PUBLIC_SITE_URL` is empty, `robots.txt` blocks all crawlers and the sitemap stays empty, so a staging address isn't indexed. Set it to the real domain when launching.
