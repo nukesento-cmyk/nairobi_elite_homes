@@ -83,7 +83,7 @@ export function SiteHeader() {
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-(--strip-h) z-40 transition-[transform,background-color,box-shadow] duration-200",
+        "group/header fixed inset-x-0 top-(--strip-h) z-40 transition-[transform,background-color,box-shadow] duration-200",
         "ease-out focus-within:translate-y-0 has-[#mobile-menu]:bg-forest-950 motion-reduce:transition-none",
         scrolled
           ? "border-b border-border bg-background/80 backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.03)]"
@@ -184,7 +184,7 @@ export function SiteHeader() {
         <Link
           href="/"
           aria-label={site.name}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-opacity hover:opacity-80"
+          className="absolute top-1 left-1/2 -translate-x-1/2 transition-opacity hover:opacity-80"
         >
           <Image
             src="/brand/logo.svg"
@@ -192,7 +192,13 @@ export function SiteHeader() {
             width={LOGO_WIDTH}
             height={LOGO_HEIGHT}
             unoptimized
-            className="h-[62px] w-auto md:h-[76px]"
+            // Hangs below the bar at the top of the page, and eases back inside it once
+            // the bar sits over content or the mobile menu opens. The shadow keeps it
+            // readable where it overlaps a bright photo.
+            className={cn(
+              "h-[88px] w-auto origin-top drop-shadow-[0_1px_6px_var(--color-forest-950)] transition-transform duration-300 ease-out group-has-[#mobile-menu]/header:scale-70 motion-reduce:transition-none md:h-[112px]",
+              scrolled && "scale-70",
+            )}
           />
         </Link>
 

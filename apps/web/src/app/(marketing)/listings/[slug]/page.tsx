@@ -102,6 +102,11 @@ async function ListingContent({ params }: ListingPageProps) {
             className="object-cover"
           />
         )}
+        {/* The header logo hangs over the top of this photo. Keeps it readable on a bright one. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-28 bg-linear-to-b from-forest-950 via-forest-950/70 to-transparent"
+        />
       </div>
 
       <div className="mx-auto grid max-w-7xl gap-12 px-4 py-14 sm:px-6 lg:grid-cols-[3fr_2fr]">
