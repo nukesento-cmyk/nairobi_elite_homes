@@ -74,6 +74,16 @@ export function canManageContent(actor: Pick<Admin, "role">): boolean {
   return actor.role === "reviewer";
 }
 
+/** Approving reviewers' work, and handling requests for the community link. */
+export function canReview(actor: Pick<Admin, "role">): boolean {
+  return actor.role === "superadmin" || actor.role === "admin";
+}
+
+/** Reviewers tidy their own work. The SuperAdmin can take down anything. */
+export function canRemoveContent(actor: Pick<Admin, "role">): boolean {
+  return actor.role === "reviewer" || actor.role === "superadmin";
+}
+
 // --- Accounts
 
 /** Only the accounts this person may manage, plus their own. */

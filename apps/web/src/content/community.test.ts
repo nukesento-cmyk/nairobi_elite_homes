@@ -11,7 +11,6 @@ const baseEnv: RawSiteEnv = {
   communityStatus: "founding",
   memberCount: "1240",
   cap: "1500",
-  offMarketCount: "300",
   paidPriceKes: "2500",
   paidPriceUsd: "20",
   instagramUrl: undefined,
@@ -113,13 +112,18 @@ describe("social proof", () => {
   it("shows the figures that are set", () => {
     expect(itemsFor({})).toEqual([
       "1,240 members",
-      "300+ off-market listings shared first in the group",
     ]);
-    expect(itemsFor({ offMarketCount: "" })).toEqual(["1,240 members"]);
+  });
+
+  it("shows the counted off-market listings, in exact numbers", () => {
+    const config = parseSiteConfig(baseEnv);
+    const withCount = (offMarketCount: number) => ({ ...config, community: { ...config.community, offMarketCount } });
+    expect(getSocialProofItems(withCount(1))[1]).toBe("1 off-market listing shared first in the group");
+    expect(getSocialProofItems(withCount(12))[1]).toBe("12 off-market listings shared first in the group");
   });
 
   it("shows nothing when no figures are set", () => {
-    expect(itemsFor({ memberCount: "", offMarketCount: "" })).toEqual([]);
+    expect(itemsFor({ memberCount: "" })).toEqual([]);
   });
 });
 

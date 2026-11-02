@@ -49,6 +49,9 @@ CREATE TABLE IF NOT EXISTS properties (
   hero_alt text,
   gallery_urls text[] NOT NULL DEFAULT '{}',
   matterport_id text,
+  -- Nothing reaches the site until it's approved. Editing sends it back for approval.
+  review_status text NOT NULL DEFAULT 'pending' CHECK (review_status IN ('pending', 'approved', 'rejected')),
+  review_note text,
   created_by uuid REFERENCES admins (id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
@@ -62,7 +65,8 @@ CREATE TABLE IF NOT EXISTS posts (
   body text NOT NULL,
   cover_url text,
   cover_alt text,
-  published boolean NOT NULL DEFAULT false,
+  review_status text NOT NULL DEFAULT 'draft' CHECK (review_status IN ('draft', 'pending', 'approved', 'rejected')),
+  review_note text,
   published_at timestamptz,
   created_by uuid REFERENCES admins (id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -83,4 +87,17 @@ CREATE TABLE IF NOT EXISTS buyer_sessions (
   token_hash text PRIMARY KEY,
   buyer_id uuid NOT NULL REFERENCES buyers (id) ON DELETE CASCADE,
   expires_at timestamptz NOT NULL
+);
+
+-- People asking an admin for the private community's link.
+CREATE TABLE IF NOT EXISTS access_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  phone text NOT NULL,
+  email text,
+  message text,
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'link_sent', 'declined')),
+  handled_by uuid REFERENCES admins (id) ON DELETE SET NULL,
+  handled_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
 );

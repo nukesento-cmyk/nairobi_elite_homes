@@ -10,7 +10,6 @@ export type RawSiteEnv = {
   communityStatus: RawValue;
   memberCount: RawValue;
   cap: RawValue;
-  offMarketCount: RawValue;
   paidPriceKes: RawValue;
   paidPriceUsd: RawValue;
   instagramUrl: RawValue;
@@ -35,6 +34,7 @@ export type SiteConfig = {
     status: CommunityStatus;
     memberCount: number | null;
     cap: number | null;
+    /** Counted from approved listings by getLiveSite. Null until the database has some. */
     offMarketCount: number | null;
     /** Null when the count or cap is unknown, so copy never shows an invented number. */
     spotsLeft: number | null;
@@ -47,7 +47,7 @@ export type SiteConfig = {
 
 /** Numbers marketing can change in the CMS without a deploy. */
 export type CommunitySettings = Partial<
-  Record<"memberCount" | "cap" | "offMarketCount" | "paidPriceKes" | "paidPriceUsd", number | null>
+  Record<"memberCount" | "cap" | "paidPriceKes" | "paidPriceUsd", number | null>
 >;
 
 function calculateSpotsLeft(memberCount: number | null, cap: number | null): number | null {
@@ -69,7 +69,7 @@ export function applyCommunitySettings(
       ...config.community,
       memberCount,
       cap,
-      offMarketCount: pick("offMarketCount"),
+      offMarketCount: config.community.offMarketCount,
       paidPriceKes: pick("paidPriceKes"),
       paidPriceUsd: pick("paidPriceUsd"),
       spotsLeft: calculateSpotsLeft(memberCount, cap),
@@ -146,7 +146,7 @@ export function parseSiteConfig(env: RawSiteEnv): SiteConfig {
       status,
       memberCount,
       cap,
-      offMarketCount: parseCount("NEXT_PUBLIC_COMMUNITY_OFF_MARKET_COUNT", env.offMarketCount),
+      offMarketCount: null,
       spotsLeft: calculateSpotsLeft(memberCount, cap),
       paidPriceKes: parseCount("NEXT_PUBLIC_COMMUNITY_PAID_PRICE_KES", env.paidPriceKes),
       paidPriceUsd: parseCount("NEXT_PUBLIC_COMMUNITY_PAID_PRICE_USD", env.paidPriceUsd),
@@ -168,7 +168,6 @@ export const site = parseSiteConfig({
   communityStatus: process.env.NEXT_PUBLIC_COMMUNITY_STATUS,
   memberCount: process.env.NEXT_PUBLIC_COMMUNITY_MEMBER_COUNT,
   cap: process.env.NEXT_PUBLIC_COMMUNITY_CAP,
-  offMarketCount: process.env.NEXT_PUBLIC_COMMUNITY_OFF_MARKET_COUNT,
   paidPriceKes: process.env.NEXT_PUBLIC_COMMUNITY_PAID_PRICE_KES,
   paidPriceUsd: process.env.NEXT_PUBLIC_COMMUNITY_PAID_PRICE_USD,
   instagramUrl: process.env.NEXT_PUBLIC_INSTAGRAM_URL,

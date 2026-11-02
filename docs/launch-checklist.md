@@ -6,7 +6,6 @@ The build sprints are complete. These need accounts, real content or a decision.
 - [ ] Sanity project with a **private** dataset and the webhook (`docs/cms-setup.md`). Connecting it removes all sample listings and photos.
 - [ ] Postgres database, then `pnpm seed-admins` (`docs/admin-accounts.md`).
 - [ ] Google OAuth client for sign-in (`docs/admin-accounts.md`).
-- [ ] File store for photo uploads. Reviewers paste photo links until then.
 - [ ] Turnstile and Resend, or the lead form keeps refusing submissions.
 - [ ] Analytics provider or log drain, or events and `clicked_join` counts aren't kept.
 - [ ] Vercel Pro: the Hobby plan is for non-commercial use.
@@ -14,7 +13,7 @@ The build sprints are complete. These need accounts, real content or a decision.
 - [ ] Remove Vercel login protection, so visitors and WhatsApp link previews can reach the site.
 
 ## Content and claims
-- [ ] Real figures: member count, founding cap and off-market listing count.
+- [ ] Real figures: member count and, if you reopen founding, the cap. The off-market count is now automatic.
 - [ ] Confirm the site's promises are true, including "verified members", "vetted owners and agents" and "direct owner contact".
 - [ ] Local review of the area pages, and a Kenyan property lawyer's review of "what to check before buying".
 - [ ] Hero photo, favicon, Spline scenes and Matterport tours, with address and map turned off in each tour.

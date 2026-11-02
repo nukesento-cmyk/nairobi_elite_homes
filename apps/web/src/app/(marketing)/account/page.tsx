@@ -4,12 +4,9 @@ import { Suspense } from "react";
 
 import { GoogleButton } from "@/components/GoogleButton";
 import { buttonVariants } from "@/components/ui/button";
-import { site } from "@/config/site";
-import { getCommunityCopy } from "@/content/community";
 import { getCurrentBuyer } from "@/lib/auth/buyer-session";
 import { isGoogleConfigured } from "@/lib/auth/google";
 import { isDatabaseConfigured } from "@/lib/db";
-import { directChatLink } from "@/lib/whatsapp";
 
 import { buyerSignOut } from "./actions";
 
@@ -38,14 +35,9 @@ async function AccountContent({ searchParams }: { searchParams: Promise<{ error?
             Browse every public home and land listing. The private community is closed and isn&apos;t
             part of a free account. To get the link, contact an admin.
           </p>
-          <a
-            href={directChatLink(getCommunityCopy(site).directMessage)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={buttonVariants({ size: "cta", className: "mt-5 w-full" })}
-          >
+          <Link href="/join#request-access" className={buttonVariants({ size: "cta", className: "mt-5 w-full" })}>
             Contact an admin
-          </a>
+          </Link>
           <div className="mt-5 flex flex-wrap gap-5 text-copper-400">
             <Link href="/homes" className="underline underline-offset-4">Homes</Link>
             <Link href="/land" className="underline underline-offset-4">Land</Link>

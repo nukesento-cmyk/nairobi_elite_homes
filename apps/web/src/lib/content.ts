@@ -2,7 +2,14 @@ import { randomBytes } from "node:crypto";
 
 import { z } from "zod";
 
-import { AdminError, canManageContent, type Admin, type Db } from "@/lib/admin/accounts";
+import {
+  AdminError,
+  canManageContent,
+  canRemoveContent,
+  canReview,
+  type Admin,
+  type Db,
+} from "@/lib/admin/accounts";
 import type { ListingDetail, PublicListing, TeaserListing } from "@/lib/cms/types";
 import { LEAD_AREAS } from "@/lib/lead-options";
 
@@ -68,7 +75,8 @@ const postSchema = z.object({
   body: text(50000).min(10, "Write the post."),
   coverUrl: imageUrl,
   coverAlt: optionalText(200),
-  published: z.boolean(),
+  /** Off saves a draft. On sends it for approval. */
+  submit: z.boolean(),
 });
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -79,6 +87,14 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
 
 function requireReviewer(actor: Admin): void {
   if (!canManageContent(actor)) throw new AdminError("Only reviewers can add properties and blogs.");
+}
+
+function requireCanRemove(actor: Admin): void {
+  if (!canRemoveContent(actor)) throw new AdminError("You can't delete that.");
+}
+
+function requireCanReview(actor: Admin): void {
+  if (!canReview(actor)) throw new AdminError("Only admins can approve content.");
 }
 
 function assertId(id: string): void {
@@ -118,6 +134,8 @@ export type PropertyRow = {
   heroAlt: string | null;
   galleryUrls: string[];
   matterportId: string | null;
+  reviewStatus: "pending" | "approved" | "rejected";
+  reviewNote: string | null;
   updatedAt: string | Date;
 };
 
@@ -125,7 +143,8 @@ const PROPERTY_COLUMNS = `id, slug, title, vertical, status, area,
   price_amount AS "priceAmount", price_currency AS "priceCurrency", price_period AS "pricePeriod",
   beds, baths, acreage, sqm, title_status AS "titleStatus", zoning, description, features,
   hero_url AS "heroUrl", hero_alt AS "heroAlt", gallery_urls AS "galleryUrls",
-  matterport_id AS "matterportId", updated_at AS "updatedAt"`;
+  matterport_id AS "matterportId", review_status AS "reviewStatus", review_note AS "reviewNote",
+  updated_at AS "updatedAt"`;
 
 function propertyParams(p: z.infer<typeof propertySchema>): unknown[] {
   return [
@@ -158,12 +177,13 @@ export async function updateProperty(db: Db, actor: Admin, id: string, input: un
   requireReviewer(actor);
   assertId(id);
   const property = parse(propertySchema, input);
-  // The slug stays the same, so links already shared keep working.
+  // The slug stays the same, so links already shared keep working. Any edit goes back for
+  // approval, or approval could be sidestepped by changing something after it's given.
   const rows = await db.query(
     `UPDATE properties SET title=$1, vertical=$2, status=$3, area=$4, price_amount=$5, price_currency=$6,
        price_period=$7, beds=$8, baths=$9, acreage=$10, sqm=$11, title_status=$12, zoning=$13,
        description=$14, features=$15::text[], hero_url=$16, hero_alt=$17, gallery_urls=$18::text[],
-       matterport_id=$19, updated_at=now()
+       matterport_id=$19, review_status='pending', review_note=NULL, updated_at=now()
      WHERE id=$20 RETURNING id`,
     [...propertyParams(property), id],
   );
@@ -171,7 +191,7 @@ export async function updateProperty(db: Db, actor: Admin, id: string, input: un
 }
 
 export async function deleteProperty(db: Db, actor: Admin, id: string): Promise<void> {
-  requireReviewer(actor);
+  requireCanRemove(actor);
   assertId(id);
   await db.query(`DELETE FROM properties WHERE id = $1`, [id]);
 }
@@ -205,7 +225,8 @@ function toListing(row: PropertyRow): PublicListing {
 
 export async function publicProperties(db: Db): Promise<PublicListing[]> {
   const rows = await db.query<PropertyRow>(
-    `SELECT ${PROPERTY_COLUMNS} FROM properties WHERE status = 'public' ORDER BY created_at DESC`,
+    `SELECT ${PROPERTY_COLUMNS} FROM properties
+     WHERE status = 'public' AND review_status = 'approved' ORDER BY created_at DESC`,
   );
   return rows.map(toListing);
 }
@@ -213,13 +234,24 @@ export async function publicProperties(db: Db): Promise<PublicListing[]> {
 export async function teaserProperties(db: Db): Promise<TeaserListing[]> {
   return db.query<TeaserListing>(
     `SELECT id, vertical, area, NULL AS lqip FROM properties
-     WHERE status IN ('off_market', 'members_only') ORDER BY created_at DESC`,
+     WHERE status IN ('off_market', 'members_only') AND review_status = 'approved'
+     ORDER BY created_at DESC`,
   );
+}
+
+/** The real number behind "off-market listings shared", counted rather than claimed. */
+export async function countOffMarket(db: Db): Promise<number> {
+  const [row] = await db.query<{ count: string | number }>(
+    `SELECT count(*) AS count FROM properties
+     WHERE status IN ('off_market', 'members_only') AND review_status = 'approved'`,
+  );
+  return Number(row.count);
 }
 
 export async function publicProperty(db: Db, slug: string): Promise<ListingDetail | null> {
   const [row] = await db.query<PropertyRow>(
-    `SELECT ${PROPERTY_COLUMNS} FROM properties WHERE status = 'public' AND slug = $1`,
+    `SELECT ${PROPERTY_COLUMNS} FROM properties
+     WHERE status = 'public' AND review_status = 'approved' AND slug = $1`,
     [slug],
   );
   if (!row) return null;
@@ -250,13 +282,15 @@ export type Post = {
   body: string;
   coverUrl: string | null;
   coverAlt: string | null;
-  published: boolean;
+  reviewStatus: "draft" | "pending" | "approved" | "rejected";
+  reviewNote: string | null;
   publishedAt: string | Date | null;
   updatedAt: string | Date;
 };
 
 const POST_COLUMNS = `id, slug, title, excerpt, body, cover_url AS "coverUrl", cover_alt AS "coverAlt",
-  published, published_at AS "publishedAt", updated_at AS "updatedAt"`;
+  review_status AS "reviewStatus", review_note AS "reviewNote",
+  published_at AS "publishedAt", updated_at AS "updatedAt"`;
 
 export async function listPosts(db: Db, actor: Admin): Promise<Post[]> {
   requireReviewer(actor);
@@ -267,10 +301,9 @@ export async function createPost(db: Db, actor: Admin, input: unknown): Promise<
   requireReviewer(actor);
   const post = parse(postSchema, input);
   const [row] = await db.query<Post>(
-    `INSERT INTO posts (title, excerpt, body, cover_url, cover_alt, published, published_at, slug, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6, CASE WHEN $6::boolean THEN now() END, $7, $8)
-     RETURNING ${POST_COLUMNS}`,
-    [post.title, post.excerpt, post.body, post.coverUrl, post.coverAlt, post.published, makeSlug(post.title), actor.id],
+    `INSERT INTO posts (title, excerpt, body, cover_url, cover_alt, review_status, slug, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING ${POST_COLUMNS}`,
+    [post.title, post.excerpt, post.body, post.coverUrl, post.coverAlt, post.submit ? "pending" : "draft", makeSlug(post.title), actor.id],
   );
   return row;
 }
@@ -280,29 +313,85 @@ export async function updatePost(db: Db, actor: Admin, id: string, input: unknow
   assertId(id);
   const post = parse(postSchema, input);
   const rows = await db.query(
-    `UPDATE posts SET title=$1, excerpt=$2, body=$3, cover_url=$4, cover_alt=$5, published=$6,
-       published_at = CASE WHEN $6::boolean THEN COALESCE(published_at, now()) ELSE NULL END,
-       updated_at = now()
+    `UPDATE posts SET title=$1, excerpt=$2, body=$3, cover_url=$4, cover_alt=$5, review_status=$6,
+       review_note=NULL, published_at=NULL, updated_at=now()
      WHERE id=$7 RETURNING id`,
-    [post.title, post.excerpt, post.body, post.coverUrl, post.coverAlt, post.published, id],
+    [post.title, post.excerpt, post.body, post.coverUrl, post.coverAlt, post.submit ? "pending" : "draft", id],
   );
   if (rows.length === 0) throw new AdminError("That item no longer exists.");
 }
 
 export async function deletePost(db: Db, actor: Admin, id: string): Promise<void> {
-  requireReviewer(actor);
+  requireCanRemove(actor);
   assertId(id);
   await db.query(`DELETE FROM posts WHERE id = $1`, [id]);
 }
 
 export async function publishedPosts(db: Db): Promise<Post[]> {
-  return db.query<Post>(`SELECT ${POST_COLUMNS} FROM posts WHERE published ORDER BY published_at DESC`);
+  return db.query<Post>(`SELECT ${POST_COLUMNS} FROM posts WHERE review_status = 'approved' ORDER BY published_at DESC`);
 }
 
 export async function publishedPost(db: Db, slug: string): Promise<Post | null> {
   const [post] = await db.query<Post>(
-    `SELECT ${POST_COLUMNS} FROM posts WHERE published AND slug = $1`,
+    `SELECT ${POST_COLUMNS} FROM posts WHERE review_status = 'approved' AND slug = $1`,
     [slug],
   );
   return post ?? null;
+}
+
+// --- Approval
+
+export type ReviewKind = "property" | "post";
+
+export async function reviewQueue(db: Db, actor: Admin) {
+  requireCanReview(actor);
+  const [properties, posts] = await Promise.all([
+    db.query<PropertyRow>(`SELECT ${PROPERTY_COLUMNS} FROM properties WHERE review_status = 'pending' ORDER BY updated_at ASC`),
+    db.query<Post>(`SELECT ${POST_COLUMNS} FROM posts WHERE review_status = 'pending' ORDER BY updated_at ASC`),
+  ]);
+  return { properties, posts };
+}
+
+export async function liveContent(db: Db, actor: Admin) {
+  requireCanRemove(actor);
+  const [properties, posts] = await Promise.all([
+    db.query<PropertyRow>(`SELECT ${PROPERTY_COLUMNS} FROM properties WHERE review_status = 'approved' ORDER BY updated_at DESC`),
+    db.query<Post>(`SELECT ${POST_COLUMNS} FROM posts WHERE review_status = 'approved' ORDER BY updated_at DESC`),
+  ]);
+  return { properties, posts };
+}
+
+// Fixed strings chosen by kind, so nothing from the request ever becomes part of the SQL.
+const REVIEW_TABLE: Record<ReviewKind, string> = { property: "properties", post: "posts" };
+
+function reviewTable(kind: string): string {
+  const table = REVIEW_TABLE[kind as ReviewKind];
+  if (!table) throw new AdminError("That item no longer exists.");
+  return table;
+}
+
+export async function approveItem(db: Db, actor: Admin, kind: string, id: string): Promise<void> {
+  requireCanReview(actor);
+  assertId(id);
+  const table = reviewTable(kind);
+  const publishedAt = table === "posts" ? ", published_at = now()" : "";
+  const rows = await db.query(
+    `UPDATE ${table} SET review_status = 'approved', review_note = NULL${publishedAt}
+     WHERE id = $1 AND review_status = 'pending' RETURNING id`,
+    [id],
+  );
+  if (rows.length === 0) throw new AdminError("That's no longer waiting for approval.");
+}
+
+export async function rejectItem(db: Db, actor: Admin, kind: string, id: string, note: unknown): Promise<void> {
+  requireCanReview(actor);
+  assertId(id);
+  const table = reviewTable(kind);
+  const reason = parse(text(500).min(3, "Say what needs changing."), note);
+  const rows = await db.query(
+    `UPDATE ${table} SET review_status = 'rejected', review_note = $2
+     WHERE id = $1 AND review_status = 'pending' RETURNING id`,
+    [id, reason],
+  );
+  if (rows.length === 0) throw new AdminError("That's no longer waiting for approval.");
 }

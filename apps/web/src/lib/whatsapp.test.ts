@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { parseSiteConfig, type CommunityStatus, type SiteConfig } from "@/config/site";
 
-import { communityLink, joinLink } from "./whatsapp";
+import { getCommunityCopy } from "@/content/community";
+
+import { chatWithNumber, communityLink, joinLink } from "./whatsapp";
 
 function configFor(communityStatus: CommunityStatus): SiteConfig {
   return parseSiteConfig({
@@ -12,8 +14,7 @@ function configFor(communityStatus: CommunityStatus): SiteConfig {
     communityStatus,
     memberCount: "1240",
     cap: "1500",
-    offMarketCount: "300",
-    paidPriceKes: "2500",
+      paidPriceKes: "2500",
     paidPriceUsd: "20",
     instagramUrl: undefined,
     tiktokUrl: undefined,
@@ -47,7 +48,7 @@ describe("joinLink", () => {
     expect(joinLink("footer", false, configFor(status))).toBe("/join");
   });
 
-  it.each(["paid", "waitlist", "closed"] as const)(
+  it.each(["paid", "waitlist"] as const)(
     "opens a direct chat from /join, never the group invite, when status is %s",
     (status) => {
       const url = new URL(joinLink("join_page", true, configFor(status)));
@@ -64,9 +65,20 @@ describe("outside founding", () => {
     expect(() => communityLink("hero", "site", "x", config)).toThrow();
   });
 
-  it("asks the admin for the link when closed", () => {
-    const url = new URL(joinLink("join_page", true, configFor("closed")));
-    expect(url.searchParams.get("text")).toMatch(/request the link/);
+  it("points at the request form on /join when closed", () => {
+    expect(joinLink("join_page", true, configFor("closed"))).toBe("#request-access");
+    expect(getCommunityCopy(configFor("closed")).directMessage).toMatch(/request the link/);
+  });
+
+  it.each([
+    ["0712 345 678", "254712345678"],
+    ["+254 712 345 678", "254712345678"],
+    ["(0712) 345-678", "254712345678"],
+  ])("opens a chat with %s", (phone, digits) => {
+    const url = new URL(chatWithNumber(phone, "Hi there", configFor("closed")));
+    expect(url.hostname).toBe("wa.me");
+    expect(url.pathname).toBe(`/${digits}`);
+    expect(url.searchParams.get("text")).toBe("Hi there");
   });
 });
 

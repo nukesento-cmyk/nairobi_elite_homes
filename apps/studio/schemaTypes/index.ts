@@ -277,7 +277,6 @@ const communitySettings = defineType({
   fields: [
     countField("memberCount", "Member count"),
     countField("cap", "Founding spots cap"),
-    countField("offMarketCount", "Off-market listings shared"),
     countField("paidPriceKes", "Monthly price (KES)"),
     countField("paidPriceUsd", "Monthly price (USD)"),
   ],

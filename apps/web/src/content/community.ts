@@ -214,7 +214,7 @@ export function getCommunityCopy({ community }: SiteConfig): CommunityCopy {
           subhead: `${ABOUT} The link isn't public. To get it, contact an admin.`,
           benefits: MEMBER_BENEFITS,
           offerTitle: "How to get in",
-          offerBody: "Message an admin on WhatsApp and ask for the link.",
+          offerBody: "Ask an admin for the link, and they'll share it with you on WhatsApp.",
           closingHeadline: "Ready to ask for the link?",
         },
       };
@@ -228,8 +228,9 @@ export function getSocialProofItems({ community }: SiteConfig): string[] {
     items.push(`${community.memberCount.toLocaleString("en-US")} members`);
   }
   if (community.offMarketCount) {
+    const count = community.offMarketCount;
     items.push(
-      `${community.offMarketCount.toLocaleString("en-US")}+ off-market listings shared first in the group`,
+      `${count.toLocaleString("en-US")} off-market ${count === 1 ? "listing" : "listings"} shared first in the group`,
     );
   }
   return items;

@@ -9,6 +9,7 @@ import { applyJoinOverrides, getCommunityCopy, type JoinOverrides } from "@/cont
 import { testimonials as fallbackTestimonials, type Testimonial } from "@/content/testimonials";
 import { whyJoinCards as fallbackCards, type WhyJoinCard } from "@/content/why-join";
 import {
+  countOffMarket,
   publicProperties,
   publicProperty,
   publishedPost,
@@ -167,7 +168,12 @@ export async function getLiveSite(): Promise<SiteConfig> {
   "use cache";
   cacheTag(CMS_CACHE_TAG);
   cacheLife("hours");
-  return applyCommunitySettings(site, await runQuery<CommunitySettings | null>(communitySettingsQuery));
+  const live = applyCommunitySettings(site, await runQuery<CommunitySettings | null>(communitySettingsQuery));
+  const offMarketCount = await fromDatabase(() => countOffMarket(db), 0);
+  return {
+    ...live,
+    community: { ...live.community, offMarketCount: offMarketCount || null },
+  };
 }
 
 /** A scene needs a valid link and a title, or it isn't shown at all. */

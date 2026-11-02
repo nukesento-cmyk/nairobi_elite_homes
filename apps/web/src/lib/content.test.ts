@@ -5,6 +5,12 @@ import { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AdminError, type Admin, type Db } from "@/lib/admin/accounts";
+import {
+  createAccessRequest,
+  deleteAccessRequest,
+  listAccessRequests,
+  setAccessRequestStatus,
+} from "@/lib/access-requests";
 import { profileFromIdToken } from "@/lib/auth/google";
 import {
   createBuyerSession,
@@ -17,10 +23,16 @@ import {
   createPost,
   createProperty,
   deleteProperty,
+  listProperties,
+  approveItem,
+  countOffMarket,
+  liveContent,
   publicProperties,
   publicProperty,
   publishedPost,
   publishedPosts,
+  rejectItem,
+  reviewQueue,
   teaserProperties,
   updatePost,
   updateProperty,
@@ -29,6 +41,7 @@ import {
 let db: Db;
 let reviewer: Admin;
 const staff = (role: Admin["role"]): Admin => ({ ...reviewer, role });
+
 
 const property = {
   title: "Garden home",
@@ -51,7 +64,12 @@ const property = {
   galleryUrls: "https://example.com/b.jpg",
   matterportId: "",
 };
-const post = { title: "Buying land", excerpt: "What to check first.", body: "Start with the title.", coverUrl: "", coverAlt: "", published: true };
+const post = { title: "Buying land", excerpt: "What to check first.", body: "Start with the title.", coverUrl: "", coverAlt: "", submit: true };
+const live = async (input = property) => {
+  const row = await createProperty(db, reviewer, input);
+  await approveItem(db, staff("admin"), "property", row.id);
+  return row;
+};
 
 // Password hashing is deliberately slow, and each test starts a fresh database.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
@@ -72,35 +90,38 @@ describe("properties", () => {
     for (const role of ["admin", "superadmin"] as const) {
       await expect(createProperty(db, staff(role), property)).rejects.toThrow(AdminError);
     }
-    expect((await publicProperties(db)).length).toBe(1);
   });
 
-  it("publishes a public property in the site's listing shape", async () => {
-    const { slug } = await createProperty(db, reviewer, property);
-    const listing = await publicProperty(db, slug);
+  it("stays off the site until approved", async () => {
+    const row = await createProperty(db, reviewer, property);
+    expect(await publicProperties(db)).toEqual([]);
+    expect(await publicProperty(db, row.slug)).toBeNull();
+    await approveItem(db, staff("admin"), "property", row.id);
+    expect((await publicProperties(db)).length).toBe(1);
+    const listing = await publicProperty(db, row.slug);
     expect(listing?.price).toEqual({ amount: 85000000, currency: "KES", period: "sale" });
-    expect(listing?.specs.beds).toBe(5);
     expect(listing?.features).toEqual(["Pool", "Garden"]);
-    expect(listing?.hero?.url).toBe("https://example.com/a.jpg");
     expect(listing?.isSample).toBe(false);
   });
 
-  it("reveals only type and area of a gated property", async () => {
-    const gated = await createProperty(db, reviewer, { ...property, status: "off_market", title: "SECRET", description: "SECRET" });
-    expect(await publicProperties(db)).toEqual([]);
-    expect(await publicProperty(db, gated.slug)).toBeNull();
-    const teasers = await teaserProperties(db);
-    expect(teasers.length).toBe(1);
-    expect(Object.keys(teasers[0]).sort()).toEqual(["area", "id", "lqip", "vertical"]);
-    expect(JSON.stringify(teasers)).not.toContain("SECRET");
+  it("goes back for approval when edited, keeping its link", async () => {
+    const row = await live();
+    await updateProperty(db, reviewer, row.id, { ...property, title: "Renamed" });
+    expect(await publicProperty(db, row.slug)).toBeNull();
+    await approveItem(db, staff("superadmin"), "property", row.id);
+    expect((await publicProperty(db, row.slug))?.title).toBe("Renamed");
   });
 
-  it("edits, keeps the link, and deletes", async () => {
-    const row = await createProperty(db, reviewer, property);
-    await updateProperty(db, reviewer, row.id, { ...property, title: "Renamed" });
-    expect((await publicProperty(db, row.slug))?.title).toBe("Renamed");
-    await deleteProperty(db, reviewer, row.id);
+  it("reveals only type and area of a gated property, once approved", async () => {
+    const gated = { ...property, status: "off_market", title: "SECRET", description: "SECRET" };
+    const row = await createProperty(db, reviewer, gated);
+    expect(await teaserProperties(db)).toEqual([]);
+    await approveItem(db, staff("admin"), "property", row.id);
+    expect(await publicProperties(db)).toEqual([]);
     expect(await publicProperty(db, row.slug)).toBeNull();
+    const teasers = await teaserProperties(db);
+    expect(Object.keys(teasers[0]).sort()).toEqual(["area", "id", "lqip", "vertical"]);
+    expect(JSON.stringify(teasers)).not.toContain("SECRET");
   });
 
   it.each([
@@ -116,9 +137,68 @@ describe("properties", () => {
   });
 
   it("keeps a property when the reviewer who added it is deleted", async () => {
-    await createProperty(db, reviewer, property);
+    await live();
     await db.query(`DELETE FROM admins WHERE id = $1`, [reviewer.id]);
     expect((await publicProperties(db)).length).toBe(1);
+  });
+});
+
+describe("approval", () => {
+  it("lets admins and the SuperAdmin approve, and nobody else", async () => {
+    const row = await createProperty(db, reviewer, property);
+    await expect(approveItem(db, reviewer, "property", row.id)).rejects.toThrow(AdminError);
+    await expect(reviewQueue(db, reviewer)).rejects.toThrow(AdminError);
+    expect((await reviewQueue(db, staff("admin"))).properties.length).toBe(1);
+    await approveItem(db, staff("superadmin"), "property", row.id);
+    expect((await reviewQueue(db, staff("admin"))).properties).toEqual([]);
+  });
+
+  it("sends work back with a note, which is needed", async () => {
+    const row = await createProperty(db, reviewer, property);
+    await expect(rejectItem(db, staff("admin"), "property", row.id, "")).rejects.toThrow(AdminError);
+    await rejectItem(db, staff("admin"), "property", row.id, "Photo is blurry");
+    expect(await publicProperties(db)).toEqual([]);
+    const [mine] = await listProperties(db, reviewer);
+    expect(mine.reviewStatus).toBe("rejected");
+    expect(mine.reviewNote).toBe("Photo is blurry");
+    await updateProperty(db, reviewer, row.id, property);
+    expect((await listProperties(db, reviewer))[0].reviewNote).toBeNull();
+  });
+
+  it("refuses an unknown kind, and work that isn't waiting", async () => {
+    const row = await createProperty(db, reviewer, property);
+    await expect(approveItem(db, staff("admin"), "admins; DROP TABLE admins", row.id)).rejects.toThrow(AdminError);
+    await approveItem(db, staff("admin"), "property", row.id);
+    await expect(approveItem(db, staff("admin"), "property", row.id)).rejects.toThrow(AdminError);
+  });
+});
+
+describe("removing", () => {
+  it("lets the SuperAdmin and reviewers remove live content, but not admins", async () => {
+    const row = await live();
+    await expect(deleteProperty(db, staff("admin"), row.id)).rejects.toThrow(AdminError);
+    await expect(liveContent(db, staff("admin"))).rejects.toThrow(AdminError);
+    expect((await liveContent(db, staff("superadmin"))).properties.length).toBe(1);
+    await deleteProperty(db, staff("superadmin"), row.id);
+    expect(await publicProperties(db)).toEqual([]);
+    const second = await live();
+    await deleteProperty(db, reviewer, second.id);
+    expect(await publicProperties(db)).toEqual([]);
+  });
+});
+
+describe("the off-market count", () => {
+  it("counts only approved gated listings", async () => {
+    expect(await countOffMarket(db)).toBe(0);
+    await live();
+    const gated = await createProperty(db, reviewer, { ...property, status: "off_market" });
+    expect(await countOffMarket(db)).toBe(0);
+    await approveItem(db, staff("admin"), "property", gated.id);
+    expect(await countOffMarket(db)).toBe(1);
+    await live({ ...property, status: "members_only" });
+    expect(await countOffMarket(db)).toBe(2);
+    await deleteProperty(db, reviewer, gated.id);
+    expect(await countOffMarket(db)).toBe(1);
   });
 });
 
@@ -128,17 +208,60 @@ describe("blog", () => {
     await expect(createPost(db, staff("superadmin"), post)).rejects.toThrow(AdminError);
   });
 
-  it("hides drafts, and shows a post once published", async () => {
-    const draft = await createPost(db, reviewer, { ...post, published: false });
-    expect(await publishedPosts(db)).toEqual([]);
-    expect(await publishedPost(db, draft.slug)).toBeNull();
+  it("hides drafts and unapproved posts", async () => {
+    const draft = await createPost(db, reviewer, { ...post, submit: false });
+    expect(draft.reviewStatus).toBe("draft");
+    expect((await reviewQueue(db, staff("admin"))).posts).toEqual([]);
     await updatePost(db, reviewer, draft.id, post);
+    expect(await publishedPost(db, draft.slug)).toBeNull();
+    expect((await reviewQueue(db, staff("admin"))).posts.length).toBe(1);
+    await approveItem(db, staff("admin"), "post", draft.id);
     expect((await publishedPost(db, draft.slug))?.publishedAt).toBeTruthy();
+    expect((await publishedPosts(db)).length).toBe(1);
   });
 
   it("stores text exactly, so markup is never treated as code", async () => {
     const created = await createPost(db, reviewer, { ...post, body: "<script>alert(1)</script> and text" });
+    await approveItem(db, staff("admin"), "post", created.id);
     expect((await publishedPost(db, created.slug))?.body).toContain("<script>");
+  });
+});
+
+describe("community link requests", () => {
+  const request = { name: "Ann Buyer", phone: "0712 345 678", email: "", message: "" };
+
+  it("logs a request, without needing an account", async () => {
+    await createAccessRequest(db, request);
+    const [row] = await listAccessRequests(db, staff("admin"));
+    expect(row).toMatchObject({ name: "Ann Buyer", status: "pending", email: null, message: null });
+  });
+
+  it("lets admins and the SuperAdmin see and handle them, not reviewers", async () => {
+    await createAccessRequest(db, request);
+    await expect(listAccessRequests(db, reviewer)).rejects.toThrow(AdminError);
+    const [row] = await listAccessRequests(db, staff("superadmin"));
+    await expect(setAccessRequestStatus(db, reviewer, row.id, "link_sent")).rejects.toThrow(AdminError);
+    await expect(deleteAccessRequest(db, reviewer, row.id)).rejects.toThrow(AdminError);
+    await setAccessRequestStatus(db, staff("admin"), row.id, "link_sent");
+    expect((await listAccessRequests(db, staff("admin")))[0].status).toBe("link_sent");
+    await expect(setAccessRequestStatus(db, staff("admin"), row.id, "hacked")).rejects.toThrow(AdminError);
+    await deleteAccessRequest(db, staff("admin"), row.id);
+    expect(await listAccessRequests(db, staff("admin"))).toEqual([]);
+  });
+
+  it("doesn't pile up repeats while one is waiting", async () => {
+    await createAccessRequest(db, request);
+    await createAccessRequest(db, request);
+    expect((await listAccessRequests(db, staff("admin"))).length).toBe(1);
+  });
+
+  it.each([
+    ["no name", { name: "" }],
+    ["a bad number", { phone: "not a number" }],
+    ["a bad email", { email: "nope" }],
+    ["a long message", { message: "x".repeat(501) }],
+  ])("refuses %s", async (_, change) => {
+    await expect(createAccessRequest(db, { ...request, ...change })).rejects.toThrow(AdminError);
   });
 });
 

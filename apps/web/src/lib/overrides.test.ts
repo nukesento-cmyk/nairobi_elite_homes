@@ -10,7 +10,6 @@ const env: RawSiteEnv = {
   communityStatus: "founding",
   memberCount: "1240",
   cap: "1500",
-  offMarketCount: "300",
   paidPriceKes: "2500",
   paidPriceUsd: "20",
   instagramUrl: undefined,
@@ -43,7 +42,7 @@ describe("applyCommunitySettings", () => {
   });
 
   it("treats zero as a real value", () => {
-    expect(applyCommunitySettings(config, { offMarketCount: 0 }).community.offMarketCount).toBe(0);
+    expect(applyCommunitySettings(config, { memberCount: 0 }).community.memberCount).toBe(0);
   });
 
   it("flows through to the strip copy", () => {

@@ -1,6 +1,6 @@
 # Accounts and roles
 
-Reviewers add properties and blogs at `/admin`, and they appear on the site straight away. Once real properties exist, the sample listings disappear. Sanity remains optional, for marketing copy and any listings kept there.
+Reviewers add properties and blogs at `/admin`. Once real properties are approved, the sample listings disappear. Sanity remains optional, for marketing copy and any listings kept there.
 
 ## Who can do what
 
@@ -8,11 +8,25 @@ Reviewers add properties and blogs at `/admin`, and they appear on the site stra
 |---|---|---|---|---|
 | Create, edit, delete and reset **admins** | Yes | No | No | No |
 | Create, edit, delete and reset **reviewers** | Yes | Yes | No | No |
-| Add, edit and delete **properties and blogs** | No | No | Yes | No |
+| Add and edit **properties and blogs** | No | No | Yes | No |
+| **Approve** or send back properties and blogs | Yes | Yes | No | No |
+| **Remove** a property or blog | Yes | No | Yes | No |
+| See and handle **community link requests** | Yes | Yes | No | No |
 | Change their own name, email and password | Yes | Yes | Yes | Google account |
-| Browse the public site, signed in for free | Yes | Yes | Yes | Yes |
 
-Nobody can delete the SuperAdmin, and the database allows only one. A free buyer account gives no access to the private community. To get the link, buyers contact an admin on WhatsApp, using the number in `NEXT_PUBLIC_WHATSAPP_DIRECT_URL`, and the admin shares it privately.
+Nobody can delete the SuperAdmin, and the database allows only one.
+
+## Approval
+
+Nothing a reviewer adds appears on the site until an admin or the SuperAdmin approves it. Sending it back includes a note, which the reviewer sees. Editing something already live takes it off the site until it's approved again, so approval can't be sidestepped by changing it afterwards.
+
+## The private community
+
+While `NEXT_PUBLIC_COMMUNITY_STATUS` is `closed`, the group link isn't anywhere on the site. People ask for it with the form on `/join`, and a free account gives no access. Requests appear in `/admin` under "Community link requests". "Open WhatsApp" starts a chat with that person: paste the group link there, then choose "Mark link sent". Requests hold personal details, so delete them once they're no longer needed.
+
+## The off-market count
+
+The homepage counts approved off-market and members-only listings itself, and shows nothing while there are none. There's no number to type in.
 
 ## Signing in
 
@@ -29,7 +43,7 @@ To turn on Google sign-in:
 
 ## Photos
 
-Reviewers add photos as `https` links for now. Uploading files needs a file store, such as Vercel Blob.
+Reviewers upload photos at `/admin`. They're shrunk to at most 2000px in the browser first, then stored in Vercel Blob (`BLOB_READ_WRITE_TOKEN`). Files there can be opened by anyone who has the exact link, so an off-market photo's link is never sent to the public site, but don't share it either.
 
 ## First-time setup
 

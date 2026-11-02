@@ -60,7 +60,7 @@ export const communitiesQuery = `*[_type == "community" && !(_id in path("drafts
 
 // Singletons are read by their fixed ID, which also excludes unpublished drafts.
 export const communitySettingsQuery = `*[_id == "communitySettings"][0] {
-  memberCount, cap, offMarketCount, paidPriceKes, paidPriceUsd
+  memberCount, cap, paidPriceKes, paidPriceUsd
 }`;
 
 export const joinPageQuery = `*[_id == "joinPage"][0][$status]`;

@@ -36,6 +36,17 @@ export function joinLink(
     return communityLink(source, "site", "founding_launch", config);
   }
   if (!onJoinPage) return "/join";
+  // Requests are logged for the admins. The form falls back to a chat if it can't be.
+  if (config.community.status === "closed") return "#request-access";
 
   return directChatLink(getCommunityCopy(config).directMessage, config);
 }
+
+/** Opens a chat with someone who asked for access. A leading 0 is a Kenyan local number. */
+export function chatWithNumber(phone: string, message: string, config: SiteConfig = site): string {
+  const digits = phone.replace(/\D/g, "").replace(/^0/, "254");
+  const url = new URL(digits, new URL(config.whatsapp.directUrl).origin);
+  url.searchParams.set("text", message);
+  return url.toString();
+}
+

@@ -5,12 +5,15 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { AdminError } from "@/lib/admin/accounts";
 import { requireAdmin } from "@/lib/admin/guard";
 import { db } from "@/lib/admin/session";
+import { deleteAccessRequest, setAccessRequestStatus } from "@/lib/access-requests";
 import { CMS_CACHE_TAG } from "@/lib/cms";
 import {
+  approveItem,
   createPost,
   createProperty,
   deletePost,
   deleteProperty,
+  rejectItem,
   updatePost,
   updateProperty,
 } from "@/lib/content";
@@ -63,7 +66,7 @@ function postInput(form: FormData) {
     body: value(form, "body"),
     coverUrl: value(form, "coverUrl"),
     coverAlt: value(form, "coverAlt"),
-    published: form.get("published") === "on",
+    submit: form.get("submit") === "on",
   };
 }
 
@@ -73,10 +76,10 @@ export async function savePropertyAction(_: ActionState, form: FormData): Promis
     const id = value(form, "id");
     if (id) {
       await updateProperty(db, actor, id, propertyInput(form));
-      return "Property saved.";
+      return "Saved and sent for approval.";
     }
     await createProperty(db, actor, propertyInput(form));
-    return "Property added.";
+    return "Sent for approval.";
   });
 }
 
@@ -93,10 +96,10 @@ export async function savePostAction(_: ActionState, form: FormData): Promise<Ac
     const id = value(form, "id");
     if (id) {
       await updatePost(db, actor, id, postInput(form));
-      return "Post saved.";
+      return form.get("submit") === "on" ? "Saved and sent for approval." : "Draft saved.";
     }
     await createPost(db, actor, postInput(form));
-    return "Post added.";
+    return form.get("submit") === "on" ? "Sent for approval." : "Draft saved.";
   });
 }
 
@@ -104,5 +107,33 @@ export async function deletePostAction(_: ActionState, form: FormData): Promise<
   return run(async () => {
     await deletePost(db, await requireAdmin(), value(form, "id"));
     return "Post deleted.";
+  });
+}
+
+export async function approveAction(_: ActionState, form: FormData): Promise<ActionState> {
+  return run(async () => {
+    await approveItem(db, await requireAdmin(), value(form, "kind"), value(form, "id"));
+    return "Approved. It's live.";
+  });
+}
+
+export async function rejectAction(_: ActionState, form: FormData): Promise<ActionState> {
+  return run(async () => {
+    await rejectItem(db, await requireAdmin(), value(form, "kind"), value(form, "id"), value(form, "note"));
+    return "Sent back to the reviewer.";
+  });
+}
+
+export async function requestStatusAction(_: ActionState, form: FormData): Promise<ActionState> {
+  return run(async () => {
+    await setAccessRequestStatus(db, await requireAdmin(), value(form, "id"), value(form, "status"));
+    return "Updated.";
+  });
+}
+
+export async function deleteRequestAction(_: ActionState, form: FormData): Promise<ActionState> {
+  return run(async () => {
+    await deleteAccessRequest(db, await requireAdmin(), value(form, "id"));
+    return "Request deleted.";
   });
 }

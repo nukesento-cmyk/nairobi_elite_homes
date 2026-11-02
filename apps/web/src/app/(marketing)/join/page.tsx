@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 
 import { JoinLink } from "@/components/marketing/JoinLink";
 import { LeadForm } from "@/components/marketing/LeadForm";
+import { RequestAccessForm } from "@/components/marketing/RequestAccessForm";
 import { SocialProofLine } from "@/components/marketing/SocialProofLine";
 import { SpotsProgress } from "@/components/marketing/SpotsProgress";
 import { WhyJoinCards } from "@/components/marketing/WhyJoinCards";
@@ -10,7 +11,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
 import { getJoinCopy, getTestimonials, getWhyJoinCards } from "@/lib/cms";
+import { isDatabaseConfigured } from "@/lib/db";
 import { pageMetadata } from "@/lib/seo";
+import { directChatLink } from "@/lib/whatsapp";
 
 const copy = getCommunityCopy(site);
 
@@ -49,6 +52,34 @@ export default async function JoinPage() {
           <SpotsProgress />
         </div>
       </section>
+
+      {site.community.status === "closed" && (
+        <section id="request-access" aria-labelledby="request-heading" className="scroll-mt-40 pt-section">
+          <div className="mx-auto max-w-xl px-4 sm:px-6">
+            <h2 id="request-heading" className="text-4xl text-bone-50 md:text-5xl">
+              Request the link
+            </h2>
+            {isDatabaseConfigured() ? (
+              <>
+                <p className="mt-3 text-bone-200">Tell an admin who you are, and they&apos;ll contact you on WhatsApp.</p>
+                <RequestAccessForm />
+              </>
+            ) : (
+              <>
+                <p className="mt-3 mb-6 text-bone-200">Message an admin on WhatsApp and ask for the link.</p>
+                <a
+                  href={directChatLink(copy.directMessage)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonVariants({ size: "cta", className: "w-full" })}
+                >
+                  Message an admin
+                </a>
+              </>
+            )}
+          </div>
+        </section>
+      )}
 
       <section aria-labelledby="benefits" className="py-section">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 md:grid-cols-2">

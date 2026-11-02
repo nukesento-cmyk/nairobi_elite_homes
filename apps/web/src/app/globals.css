@@ -220,6 +220,19 @@ html:has(#mobile-menu) [data-floating-whatsapp] {
   }
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .nav-reveal {
+    animation: nav-reveal 300ms ease-out backwards;
+    animation-delay: calc(var(--reveal-index, 0) * 40ms);
+  }
+}
+@keyframes nav-reveal {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .underline-draw {
     transition: none;

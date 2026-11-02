@@ -32,6 +32,9 @@ function JoinAnchor({
   if (href.startsWith("/")) {
     return <Link {...props} href={href} onClick={handleClick} />;
   }
+  if (href.startsWith("#")) {
+    return <a {...props} href={href} onClick={handleClick} />;
+  }
   return <a {...props} href={href} target="_blank" rel="noopener noreferrer" onClick={handleClick} />;
 }
 

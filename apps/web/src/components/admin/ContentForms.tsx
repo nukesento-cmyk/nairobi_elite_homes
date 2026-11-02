@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { upload } from "@vercel/blob/client";
+import { useActionState, useState, type ChangeEvent } from "react";
 
 import {
   deletePostAction,
@@ -27,7 +28,82 @@ function Result({ state }: { state: ActionState }) {
   );
 }
 
-function DeleteItem({
+const MAX_PHOTO_SIDE = 2000;
+
+/** Shrinks a photo before sending, so a phone camera's 8MB file doesn't reach visitors. */
+async function shrinkPhoto(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Couldn't read that photo."))), "image/webp", 0.8);
+  });
+}
+
+function PhotoField({
+  name,
+  label,
+  defaultValue = "",
+  multiple = false,
+  uploads,
+}: {
+  name: string;
+  label: string;
+  defaultValue?: string;
+  multiple?: boolean;
+  uploads: boolean;
+}) {
+  const [value, setValue] = useState(defaultValue);
+  const [status, setStatus] = useState<string>();
+
+  async function onChoose(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    for (const [index, file] of files.entries()) {
+      setStatus(`Uploading ${index + 1} of ${files.length}…`);
+      try {
+        const photo = await shrinkPhoto(file);
+        const { url } = await upload(`photos/${crypto.randomUUID()}`, photo, {
+          access: "public",
+          contentType: photo.type,
+          handleUploadUrl: "/admin/upload",
+        });
+        setValue((current) => (multiple && current ? `${current}\n${url}` : url));
+      } catch {
+        setStatus("That photo couldn't be uploaded. Please try another.");
+        return;
+      }
+    }
+    setStatus("Uploaded.");
+  }
+
+  const hint = uploads ? "Or paste a secure link, starting with https" : "A secure link, starting with https";
+  return (
+    <div className="sm:col-span-2">
+      <label className={labelClass}>
+        {label}
+        {multiple ? (
+          <textarea name={name} rows={3} value={value} onChange={(e) => setValue(e.target.value)} placeholder={`${hint}, one per line`} className={fieldClass} />
+        ) : (
+          <input name={name} inputMode="url" value={value} onChange={(e) => setValue(e.target.value)} placeholder={hint} className={fieldClass} />
+        )}
+      </label>
+      {uploads && (
+        <label className="mt-2 inline-block cursor-pointer text-sm text-copper-400 underline underline-offset-4">
+          {multiple ? "Upload photos" : "Upload a photo"}
+          <input type="file" accept="image/jpeg,image/png,image/webp" multiple={multiple} onChange={onChoose} className="sr-only" />
+        </label>
+      )}
+      {status && <p role="status" className="mt-1 text-sm text-bone-200">{status}</p>}
+    </div>
+  );
+}
+
+export function DeleteItem({
   id,
   name,
   action: deleteAction,
@@ -60,7 +136,7 @@ function DeleteItem({
   );
 }
 
-function PropertyForm({ property }: { property?: PropertyRow }) {
+function PropertyForm({ property, uploads }: { property?: PropertyRow; uploads: boolean }) {
   const [state, action, pending] = useActionState(savePropertyAction, {});
   const isNew = !property;
   return (
@@ -146,39 +222,51 @@ function PropertyForm({ property }: { property?: PropertyRow }) {
         Features, one per line
         <textarea name="features" rows={3} defaultValue={property?.features.join("\n")} className={fieldClass} />
       </label>
-      <label className={labelClass}>
-        Main photo link (secure, starting with https)
-        <input name="heroUrl" inputMode="url" defaultValue={property?.heroUrl ?? ""} className={fieldClass} />
-      </label>
-      <label className={labelClass}>
+      <PhotoField name="heroUrl" label="Main photo" defaultValue={property?.heroUrl ?? ""} uploads={uploads} />
+      <label className={`${labelClass} sm:col-span-2`}>
         Main photo description
         <input name="heroAlt" defaultValue={property?.heroAlt ?? ""} className={fieldClass} />
       </label>
-      <label className={`${labelClass} sm:col-span-2`}>
-        More photo links, one per line
-        <textarea name="galleryUrls" rows={3} defaultValue={property?.galleryUrls.join("\n")} className={fieldClass} />
-      </label>
+      <PhotoField name="galleryUrls" label="More photos" defaultValue={property?.galleryUrls.join("\n")} multiple uploads={uploads} />
       <label className={labelClass}>
         Matterport ID (public listings only)
         <input name="matterportId" defaultValue={property?.matterportId ?? ""} className={fieldClass} />
       </label>
       <div className="sm:col-span-2">
         <button type="submit" disabled={pending} className={button}>
-          {isNew ? "Add property" : "Save property"}
+          {isNew ? "Send for approval" : "Save and send for approval"}
         </button>
+        {property?.reviewStatus === "approved" && (
+          <p className="mt-2 text-sm text-bone-200">Saving takes this off the site until it&apos;s approved again.</p>
+        )}
         <Result state={state} />
       </div>
     </form>
   );
 }
 
-export function PropertyManager({ properties }: { properties: PropertyRow[] }) {
+function ReviewBadge({ status, note }: { status: string; note: string | null }) {
+  const labels: Record<string, string> = {
+    draft: "Draft",
+    pending: "Waiting for approval",
+    approved: "Live",
+    rejected: "Needs changes",
+  };
+  return (
+    <p className="mt-1 text-sm text-copper-400">
+      {labels[status]}
+      {note && <span className="block text-bone-50">Admin&apos;s note: {note}</span>}
+    </p>
+  );
+}
+
+export function PropertyManager({ properties, uploads }: { properties: PropertyRow[]; uploads: boolean }) {
   return (
     <section className="mb-14">
       <h2 className="mb-4 text-2xl text-bone-50">Properties</h2>
       <details className="mb-6 rounded-xl border border-border p-5">
         <summary className="cursor-pointer font-medium text-copper-400">Add a property</summary>
-        <div className="mt-5"><PropertyForm /></div>
+        <div className="mt-5"><PropertyForm uploads={uploads} /></div>
       </details>
       {properties.length === 0 && <p className="text-bone-200">No properties yet.</p>}
       <ul className="space-y-3">
@@ -186,9 +274,10 @@ export function PropertyManager({ properties }: { properties: PropertyRow[] }) {
           <li key={property.id} data-property={property.title} className="rounded-xl border border-border p-5">
             <p className="text-lg text-bone-50">{property.title}</p>
             <p className="text-sm text-bone-200">{property.area} · {property.status.replace("_", " ")}</p>
+            <ReviewBadge status={property.reviewStatus} note={property.reviewNote} />
             <details className="mt-4">
               <summary className="cursor-pointer text-sm text-copper-400">Edit</summary>
-              <div className="mt-4"><PropertyForm property={property} /></div>
+              <div className="mt-4"><PropertyForm property={property} uploads={uploads} /></div>
             </details>
             <div className="mt-4">
               <DeleteItem id={property.id} name={property.title} action={deletePropertyAction} />
@@ -200,7 +289,7 @@ export function PropertyManager({ properties }: { properties: PropertyRow[] }) {
   );
 }
 
-function PostForm({ post }: { post?: Post }) {
+function PostForm({ post, uploads }: { post?: Post; uploads: boolean }) {
   const [state, action, pending] = useActionState(savePostAction, {});
   return (
     <form action={action} className="space-y-4">
@@ -217,43 +306,43 @@ function PostForm({ post }: { post?: Post }) {
         Post
         <textarea name="body" rows={10} required defaultValue={post?.body} className={fieldClass} />
       </label>
-      <label className={labelClass}>
-        Cover photo link (secure, starting with https)
-        <input name="coverUrl" inputMode="url" defaultValue={post?.coverUrl ?? ""} className={fieldClass} />
-      </label>
+      <PhotoField name="coverUrl" label="Cover photo" defaultValue={post?.coverUrl ?? ""} uploads={uploads} />
       <label className={labelClass}>
         Cover photo description
         <input name="coverAlt" defaultValue={post?.coverAlt ?? ""} className={fieldClass} />
       </label>
       <label className="flex items-center gap-2 text-sm text-bone-50">
-        <input name="published" type="checkbox" defaultChecked={post?.published} className="size-4" />
-        Published (visible on the site)
+        <input name="submit" type="checkbox" defaultChecked={post ? post.reviewStatus !== "draft" : true} className="size-4" />
+        Send for approval (leave unticked to keep as a draft)
       </label>
       <button type="submit" disabled={pending} className={button}>
         {post ? "Save post" : "Add post"}
       </button>
+      {post?.reviewStatus === "approved" && (
+        <p className="text-sm text-bone-200">Saving takes this off the site until it&apos;s approved again.</p>
+      )}
       <Result state={state} />
     </form>
   );
 }
 
-export function PostManager({ posts }: { posts: Post[] }) {
+export function PostManager({ posts, uploads }: { posts: Post[]; uploads: boolean }) {
   return (
     <section className="mb-14">
       <h2 className="mb-4 text-2xl text-bone-50">Blog</h2>
       <details className="mb-6 rounded-xl border border-border p-5">
         <summary className="cursor-pointer font-medium text-copper-400">Add a post</summary>
-        <div className="mt-5"><PostForm /></div>
+        <div className="mt-5"><PostForm uploads={uploads} /></div>
       </details>
       {posts.length === 0 && <p className="text-bone-200">No posts yet.</p>}
       <ul className="space-y-3">
         {posts.map((post) => (
           <li key={post.id} data-post={post.title} className="rounded-xl border border-border p-5">
             <p className="text-lg text-bone-50">{post.title}</p>
-            <p className="text-sm text-bone-200">{post.published ? "Published" : "Draft"}</p>
+            <ReviewBadge status={post.reviewStatus} note={post.reviewNote} />
             <details className="mt-4">
               <summary className="cursor-pointer text-sm text-copper-400">Edit</summary>
-              <div className="mt-4"><PostForm post={post} /></div>
+              <div className="mt-4"><PostForm post={post} uploads={uploads} /></div>
             </details>
             <div className="mt-4">
               <DeleteItem id={post.id} name={post.title} action={deletePostAction} />
