@@ -2,12 +2,14 @@ import { FileSearch, Landmark, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 
 import { JoinLink } from "@/components/marketing/JoinLink";
+import { PLACE_HERO_CLASS, PlaceBackground } from "@/components/marketing/PlaceBackground";
 import { ScrollReveal } from "@/components/motion/ScrollReveal";
 import { SplineScene } from "@/components/motion/SplineScene";
 import { ListingsBrowser } from "@/components/property/ListingsBrowser";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
+import { placeImages } from "@/content/place-images";
 import { getPublicListings, getSiteMedia, getTeaserListings } from "@/lib/cms";
 import { pageMetadata } from "@/lib/seo";
 
@@ -46,7 +48,8 @@ export default async function LandPage() {
 
   return (
     <div className="vertical-land bg-background">
-      <section className="grain relative bg-linear-to-b from-slate-800 to-slate-950 py-section">
+      <section className={`grain relative bg-linear-to-b from-slate-800 to-slate-950 py-section ${PLACE_HERO_CLASS}`}>
+        <PlaceBackground image={placeImages.land} tone="slate" />
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
           <h1 className="max-w-4xl text-display text-bone-50">
             Land in Nairobi is a minefield. Walk it with people who&apos;ve been there.

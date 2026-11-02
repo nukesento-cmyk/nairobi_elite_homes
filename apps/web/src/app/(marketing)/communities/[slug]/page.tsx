@@ -4,14 +4,17 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { JoinLink } from "@/components/marketing/JoinLink";
+import { PLACE_HERO_CLASS, PlaceBackground } from "@/components/marketing/PlaceBackground";
 import { PropertyGrid } from "@/components/property/PropertyGrid";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
 import { communities } from "@/content/communities";
+import { placeImages } from "@/content/place-images";
 import { getCommunity, getPublicListings, getTeaserListings } from "@/lib/cms";
 import { communityJsonLd } from "@/lib/json-ld";
 import { mergeTeasers } from "@/lib/listings";
+import { cn } from "@/lib/utils";
 import { pageMetadata } from "@/lib/seo";
 
 type CommunityPageProps = { params: Promise<{ slug: string }> };
@@ -32,7 +35,15 @@ export async function generateMetadata({ params }: CommunityPageProps): Promise<
 }
 
 function CommunityFallback() {
-  return <div aria-hidden="true" className="min-h-[80vh]" />;
+  // Sits where the real hero will, and keeps the footer out of view, so nothing jumps
+  // when the content arrives.
+  return (
+    <div aria-hidden="true" className="min-h-[200vh]">
+      <div className={`bg-linear-to-b from-forest-900 to-forest-950 py-section ${PLACE_HERO_CLASS}`}>
+        <div className="h-48" />
+      </div>
+    </div>
+  );
 }
 
 export default function CommunityPage({ params }: CommunityPageProps) {
@@ -53,6 +64,7 @@ async function CommunityContent({ params }: CommunityPageProps) {
     teasers.filter((teaser) => teaser.area === community.name),
   );
   const { cta } = getCommunityCopy(site);
+  const image = placeImages[community.slug];
 
   return (
     <>
@@ -61,7 +73,13 @@ async function CommunityContent({ params }: CommunityPageProps) {
         dangerouslySetInnerHTML={{ __html: communityJsonLd(community, site.url) }}
       />
 
-      <section className="grain relative bg-linear-to-b from-forest-900 to-forest-950 py-section">
+      <section
+        className={cn(
+          "grain relative bg-linear-to-b from-forest-900 to-forest-950 py-section",
+          image && PLACE_HERO_CLASS,
+        )}
+      >
+        {image && <PlaceBackground image={image} />}
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
           <p className="text-bone-200">Nairobi</p>
           <h1 className="mt-2 text-display text-bone-50">{community.name}</h1>

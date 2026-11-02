@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 
 import { JoinLink } from "@/components/marketing/JoinLink";
 import { LeadForm } from "@/components/marketing/LeadForm";
+import { PLACE_HERO_CLASS, PlaceBackground } from "@/components/marketing/PlaceBackground";
 import { RequestAccessForm } from "@/components/marketing/RequestAccessForm";
 import { SocialProofLine } from "@/components/marketing/SocialProofLine";
 import { SpotsProgress } from "@/components/marketing/SpotsProgress";
@@ -10,6 +11,7 @@ import { WhyJoinCards } from "@/components/marketing/WhyJoinCards";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
+import { placeImages } from "@/content/place-images";
 import { getJoinCopy, getTestimonials, getWhyJoinCards } from "@/lib/cms";
 import { isDatabaseConfigured } from "@/lib/db";
 import { isLeadFormAvailable } from "@/lib/lead-config";
@@ -35,7 +37,8 @@ export default async function JoinPage() {
 
   return (
     <>
-      <section className="grain relative bg-linear-to-b from-forest-900 to-forest-950 py-section">
+      <section className={`grain relative bg-linear-to-b from-forest-900 to-forest-950 py-section ${PLACE_HERO_CLASS}`}>
+        <PlaceBackground image={placeImages.join} />
         <div className="relative mx-auto flex max-w-7xl flex-col items-start gap-8 px-4 sm:px-6">
           <p className="rounded-full border border-copper/50 px-3 py-1 text-xs font-medium tracking-widest text-copper-400 uppercase">
             {join.badge}
