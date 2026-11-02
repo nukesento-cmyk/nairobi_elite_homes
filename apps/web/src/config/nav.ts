@@ -1,15 +1,24 @@
 export type NavItem = {
   label: string;
   href: string;
-  /** Set to true when the route ships, so the site never links to a 404. */
-  live: boolean;
 };
 
-const navItems: NavItem[] = [
-  { label: "Why join", href: "/join", live: true },
-  { label: "Homes", href: "/homes", live: true },
-  { label: "Land", href: "/land", live: true },
-  { label: "About", href: "/about", live: false },
+export type AreaItem = NavItem & {
+  description: string;
+};
+
+export const primaryNav: NavItem[] = [
+  { label: "Homes", href: "/homes" },
+  { label: "Land", href: "/land" },
+  { label: "Why join", href: "/join" },
+  { label: "Contact", href: "/contact" },
 ];
 
-export const primaryNav = navItems.filter((item) => item.live);
+export const areasNav: AreaItem[] = [
+  { label: "Karen", href: "/communities/karen", description: "Gated estates & acreage" },
+  { label: "Runda", href: "/communities/runda", description: "Diplomatic, leafy, private" },
+  { label: "Kilimani", href: "/communities/kilimani", description: "Urban convenience, modern" },
+  { label: "Rosslyn", href: "/communities/rosslyn", description: "Quiet, embassy-adjacent" },
+  { label: "Lavington", href: "/communities/lavington", description: "Established, family homes" },
+  { label: "Muthaiga", href: "/communities/muthaiga", description: "Old-money, tree-lined" },
+];

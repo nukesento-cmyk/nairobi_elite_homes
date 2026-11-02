@@ -22,7 +22,7 @@ export default async function MarketingLayout({ children }: { children: ReactNod
       </a>
       <UrgencyStrip />
       <SiteHeader />
-      <main id="main" className="flex-1">
+      <main id="main" className="flex-1 pt-(--header-h)">
         {children}
       </main>
       <SiteFooter />

@@ -16,6 +16,7 @@ export function FloatingWhatsAppButton() {
 
   return (
     <JoinLink
+      data-floating-whatsapp
       source="floating_button"
       aria-label={`${cta.long} on WhatsApp`}
       className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-full bg-copper text-forest-950 shadow-lg motion-safe:animate-soft-pulse md:hidden"

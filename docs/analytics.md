@@ -22,6 +22,7 @@ All events go through `track()` in `apps/web/src/lib/analytics.ts`. **No provide
 | `top_strip` | `global` | Sticky strip at the top of the page |
 | `header` | `global` | Site header button |
 | `footer` | `global` | Footer button |
+| `mobile_menu` | `mobile_menu` | Button at the bottom of the mobile menu |
 | `floating_button` | `global` | Floating WhatsApp button on mobile |
 | `hero` | `home_hero` | Homepage hero, primary button |
 | `home_first_look`, `home_verified`, `home_land_safety`, `home_owner_contact` | `home_why_join` | Homepage "why join" cards |

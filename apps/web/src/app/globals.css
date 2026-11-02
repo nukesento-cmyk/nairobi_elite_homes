@@ -81,6 +81,8 @@
 
 /* The site is always dark: forest base, copper actions, bone text. */
 :root {
+  --strip-h: 40px;
+  --header-h: 60px;
   color-scheme: dark;
   --background: var(--color-forest-950);
   --foreground: var(--color-bone-50);
@@ -135,6 +137,19 @@
 
 html[data-strip-dismissed] [data-urgency-strip] {
   display: none;
+}
+html[data-strip-dismissed] {
+  --strip-h: 0px;
+}
+
+/* The mobile menu has its own join button, which this would sit on top of. */
+html:has(#mobile-menu) [data-floating-whatsapp] {
+  display: none;
+}
+@media (min-width: 768px) {
+  :root {
+    --header-h: 72px;
+  }
 }
 
 /* Film grain over gradients: a tiled SVG noise tile at low opacity. */
