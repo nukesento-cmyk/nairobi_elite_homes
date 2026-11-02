@@ -1,20 +1,35 @@
-# Admin accounts
+# Accounts and roles
 
-Sign in at `/admin`. Website content is still edited in the Sanity Studio.
+Reviewers add properties and blogs at `/admin`, and they appear on the site straight away. Once real properties exist, the sample listings disappear. Sanity remains optional, for marketing copy and any listings kept there.
 
-## What each role can do
+## Who can do what
 
-| | SuperAdmin | Admin |
-|---|---|---|
-| See all accounts | Yes | Yes |
-| Add an admin | Yes | Yes |
-| Edit an admin's name and email | Yes | Yes |
-| Change their own password | Yes | Yes |
-| Edit the SuperAdmin | Themselves only | No |
-| **Delete an admin** | **Yes** | **No** |
-| Reset another admin's password | Yes | No |
+| | SuperAdmin | Admin | Reviewer | Buyer |
+|---|---|---|---|---|
+| Create, edit, delete and reset **admins** | Yes | No | No | No |
+| Create, edit, delete and reset **reviewers** | Yes | Yes | No | No |
+| Add, edit and delete **properties and blogs** | No | No | Yes | No |
+| Change their own name, email and password | Yes | Yes | Yes | Google account |
+| Browse the public site, signed in for free | Yes | Yes | Yes | Yes |
 
-Nobody can delete the SuperAdmin, and the database allows only one.
+Nobody can delete the SuperAdmin, and the database allows only one. A free buyer account gives no access to the private community.
+
+## Signing in
+
+- **Buyers** use "Continue with Google" at `/account`. There's no password, and no second step.
+- **Staff** sign in at `/admin`, with Google or a password. Google only works for an email someone has already added as staff.
+
+To turn on Google sign-in:
+
+1. In Google Cloud Console, create an OAuth client of type "Web application".
+2. Add these authorised redirect URIs, using your real domain:
+   - `https://nairobi-elite-homes.vercel.app/api/auth/google/callback`
+   - `http://localhost:3000/api/auth/google/callback`
+3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in Vercel and in `apps/web/.env.local`. They're secrets: never add a `NEXT_PUBLIC_` prefix.
+
+## Photos
+
+Reviewers add photos as `https` links for now. Uploading files needs a file store, such as Vercel Blob.
 
 ## First-time setup
 
@@ -35,4 +50,5 @@ Running the seed again is safe: existing accounts and passwords are left alone. 
 - Passwords are hashed with scrypt, and only a hash of each session token is stored.
 - Sessions last 12 hours. Deleting an admin or resetting their password signs them out immediately.
 - Ten wrong passwords lock an account for 15 minutes.
+- Google sign-in checks the token was issued to this site, for this attempt, with a verified email.
 - Every action rechecks the signed-in account on the server. Hidden buttons aren't what enforce the rules.

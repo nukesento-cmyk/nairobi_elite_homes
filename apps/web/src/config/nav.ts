@@ -11,7 +11,9 @@ export const primaryNav: NavItem[] = [
   { label: "Homes", href: "/homes" },
   { label: "Land", href: "/land" },
   { label: "Why join", href: "/join" },
+  { label: "Blog", href: "/blog" },
   { label: "Contact", href: "/contact" },
+  { label: "Sign in", href: "/account" },
 ];
 
 export const areasNav: AreaItem[] = [

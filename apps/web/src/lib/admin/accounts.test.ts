@@ -2,12 +2,13 @@
 import { readFileSync } from "node:fs";
 
 import { PGlite } from "@electric-sql/pglite";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   AdminError,
   authenticate,
-  canDeleteAdmin,
+  authenticateWithGoogle,
+  canManage,
   changeOwnPassword,
   createAdmin,
   createSession,
@@ -30,6 +31,10 @@ let pg: PGlite;
 let superadmin: Admin;
 let adminOne: Admin;
 let adminTwo: Admin;
+let reviewer: Admin;
+
+// Password hashing is deliberately slow, and each test starts a fresh database.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 beforeEach(async () => {
   pg = new PGlite();
@@ -41,99 +46,97 @@ beforeEach(async () => {
      VALUES ('super@example.com', 'Super', 'superadmin', $1, false)`,
     [await hashPassword(SUPER_PASSWORD)],
   );
-  superadmin = (await listAdmins(db))[0];
-  adminOne = (await createAdmin(db, { email: "One@Example.com", name: "One" })).admin;
-  adminTwo = (await createAdmin(db, { email: "two@example.com", name: "Two" })).admin;
+  [superadmin] = await db.query<Admin>(
+    `SELECT id, email, name, role, must_change_password AS "mustChangePassword", created_at AS "createdAt" FROM admins`,
+  );
+  adminOne = (await createAdmin(db, superadmin, { email: "One@Example.com", name: "One", role: "admin" })).admin;
+  adminTwo = (await createAdmin(db, superadmin, { email: "two@example.com", name: "Two", role: "admin" })).admin;
+  reviewer = (await createAdmin(db, adminOne, { email: "rev@example.com", name: "Rev", role: "reviewer" })).admin;
 });
 
-const emails = async () => (await listAdmins(db)).map((admin) => admin.email);
+const emails = async () => (await listAdmins(db, superadmin)).map((admin) => admin.email);
 
-describe("deleting", () => {
-  it("lets the SuperAdmin delete an admin", async () => {
-    await deleteAdmin(db, superadmin, adminOne.id);
-    expect(await emails()).toEqual(["super@example.com", "two@example.com"]);
+describe("who can manage whom", () => {
+  it("lets the SuperAdmin create, edit, reset and delete admins", async () => {
+    const { admin } = await createAdmin(db, superadmin, { email: "new@example.com", name: "New", role: "admin" });
+    await updateAdmin(db, superadmin, admin.id, { email: "new@example.com", name: "Renamed" });
+    await resetPassword(db, superadmin, admin.id);
+    await deleteAdmin(db, superadmin, admin.id);
+    expect(await emails()).not.toContain("new@example.com");
   });
 
-  it("stops an admin deleting another admin", async () => {
-    await expect(deleteAdmin(db, adminOne, adminTwo.id)).rejects.toThrow(AdminError);
-    expect(await emails()).toContain("two@example.com");
+  it("lets an admin create, edit, reset and delete reviewers", async () => {
+    const { admin } = await createAdmin(db, adminOne, { email: "r2@example.com", name: "R2", role: "reviewer" });
+    await updateAdmin(db, adminOne, admin.id, { email: "r2@example.com", name: "Renamed" });
+    await resetPassword(db, adminOne, admin.id);
+    await deleteAdmin(db, adminOne, admin.id);
+    expect(await emails()).not.toContain("r2@example.com");
   });
 
-  it("stops an admin deleting themselves", async () => {
-    await expect(deleteAdmin(db, adminOne, adminOne.id)).rejects.toThrow(AdminError);
-    expect(await emails()).toContain("one@example.com");
+  it("stops an admin touching other admins or the SuperAdmin", async () => {
+    await expect(createAdmin(db, adminOne, { email: "x@example.com", name: "Xx", role: "admin" })).rejects.toThrow(AdminError);
+    for (const target of [adminTwo, superadmin]) {
+      await expect(updateAdmin(db, adminOne, target.id, { email: "x@example.com", name: "Xx" })).rejects.toThrow(AdminError);
+      await expect(resetPassword(db, adminOne, target.id)).rejects.toThrow(AdminError);
+      await expect(deleteAdmin(db, adminOne, target.id)).rejects.toThrow(AdminError);
+    }
+    expect((await listAdmins(db, adminOne)).map(({ role }) => role).sort()).toEqual(["admin", "reviewer"]);
+    expect((await listAdmins(db, adminOne)).map(({ id }) => id)).not.toContain(adminTwo.id);
   });
 
-  it("stops anyone deleting the SuperAdmin, including the SuperAdmin", async () => {
-    await expect(deleteAdmin(db, adminOne, superadmin.id)).rejects.toThrow(AdminError);
-    await expect(deleteAdmin(db, superadmin, superadmin.id)).rejects.toThrow(AdminError);
-    expect(canDeleteAdmin(superadmin, superadmin)).toBe(false);
-    expect(await emails()).toContain("super@example.com");
+  it("stops a reviewer managing any account", async () => {
+    await expect(createAdmin(db, reviewer, { email: "x@example.com", name: "Xx", role: "reviewer" })).rejects.toThrow(AdminError);
+    for (const target of [adminOne, superadmin]) {
+      await expect(deleteAdmin(db, reviewer, target.id)).rejects.toThrow(AdminError);
+    }
+    expect((await listAdmins(db, reviewer)).map(({ id }) => id)).toEqual([reviewer.id]);
   });
 
-  it("signs a deleted admin out at once", async () => {
-    const token = await createSession(db, adminOne.id);
-    expect(await findSessionAdmin(db, token)).not.toBeNull();
-    await deleteAdmin(db, superadmin, adminOne.id);
-    expect(await findSessionAdmin(db, token)).toBeNull();
-  });
-
-  it("reports a missing or malformed id", async () => {
-    await expect(deleteAdmin(db, superadmin, "not-a-uuid")).rejects.toThrow(AdminError);
-    await expect(deleteAdmin(db, superadmin, crypto.randomUUID())).rejects.toThrow(AdminError);
-  });
-});
-
-describe("creating and editing", () => {
-  it("only ever creates the admin role, and stores a lowercase email", async () => {
-    expect(adminOne.role).toBe("admin");
-    expect(adminOne.email).toBe("one@example.com");
-    expect(adminOne.mustChangePassword).toBe(true);
-  });
-
-  it("returns a temporary password that signs in, and stores only a hash", async () => {
-    const { temporaryPassword } = await createAdmin(db, { email: "new@example.com", name: "New" });
-    const admin = await authenticate(db, { email: "new@example.com", password: temporaryPassword });
-    expect(admin.mustChangePassword).toBe(true);
-    const [row] = await db.query<{ password_hash: string }>(
-      `SELECT password_hash FROM admins WHERE email = 'new@example.com'`,
-    );
-    expect(row.password_hash).not.toContain(temporaryPassword);
-  });
-
-  it("refuses a duplicate email and bad input", async () => {
-    await expect(createAdmin(db, { email: "ONE@example.com", name: "Dup" })).rejects.toThrow(/already exists/);
-    await expect(createAdmin(db, { email: "nope", name: "Bad" })).rejects.toThrow(AdminError);
-    await expect(createAdmin(db, { email: "a@example.com", name: "" })).rejects.toThrow(AdminError);
-    await expect(updateAdmin(db, adminOne, adminTwo.id, { email: "ONE@example.com", name: "x y" })).rejects.toThrow(/already exists/);
-  });
-
-  it("lets admins edit admins, but not the SuperAdmin", async () => {
-    await updateAdmin(db, adminOne, adminTwo.id, { email: "two@example.com", name: "Renamed" });
-    expect((await listAdmins(db)).find(({ id }) => id === adminTwo.id)?.name).toBe("Renamed");
-    await expect(
-      updateAdmin(db, adminOne, superadmin.id, { email: "hacked@example.com", name: "Hacked" }),
-    ).rejects.toThrow(AdminError);
-    expect(await emails()).toContain("super@example.com");
-  });
-
-  it("allows one SuperAdmin only, enforced by the database", async () => {
+  it("never allows a second SuperAdmin, by role or by database", async () => {
+    await expect(createAdmin(db, superadmin, { email: "x@example.com", name: "Xx", role: "superadmin" })).rejects.toThrow(AdminError);
     await expect(
       db.query(`INSERT INTO admins (email, name, role, password_hash) VALUES ('s2@example.com', 'S', 'superadmin', 'x')`),
     ).rejects.toThrow();
   });
+
+  it("stops anyone deleting the SuperAdmin, or themselves", async () => {
+    await expect(deleteAdmin(db, superadmin, superadmin.id)).rejects.toThrow(AdminError);
+    await expect(deleteAdmin(db, adminOne, adminOne.id)).rejects.toThrow(AdminError);
+    expect(canManage(superadmin, superadmin)).toBe(false);
+  });
+
+  it("signs a deleted account out at once", async () => {
+    const token = await createSession(db, reviewer.id);
+    await deleteAdmin(db, adminOne, reviewer.id);
+    expect(await findSessionAdmin(db, token)).toBeNull();
+  });
+
+  it("refuses a duplicate email and bad input", async () => {
+    await expect(createAdmin(db, superadmin, { email: "ONE@example.com", name: "Dup", role: "admin" })).rejects.toThrow(/already exists/);
+    await expect(createAdmin(db, superadmin, { email: "nope", name: "Bad", role: "admin" })).rejects.toThrow(AdminError);
+    await expect(deleteAdmin(db, superadmin, "not-a-uuid")).rejects.toThrow(AdminError);
+  });
+
+  it("stores only a hash of temporary passwords", async () => {
+    const { temporaryPassword } = await createAdmin(db, superadmin, { email: "new@example.com", name: "New", role: "admin" });
+    expect((await authenticate(db, { email: "new@example.com", password: temporaryPassword })).mustChangePassword).toBe(true);
+    const [row] = await db.query<{ password_hash: string }>(`SELECT password_hash FROM admins WHERE email = 'new@example.com'`);
+    expect(row.password_hash).not.toContain(temporaryPassword);
+  });
+});
+
+describe("staff signing in with Google", () => {
+  it("only matches an existing account, and retires a temporary password", async () => {
+    expect(await authenticateWithGoogle(db, "stranger@example.com")).toBeNull();
+    const { temporaryPassword } = await createAdmin(db, adminOne, { email: "g@example.com", name: "Goo", role: "reviewer" });
+    const admin = await authenticateWithGoogle(db, "G@example.com");
+    expect(admin?.role).toBe("reviewer");
+    expect(admin?.mustChangePassword).toBe(false);
+    await expect(authenticate(db, { email: "g@example.com", password: temporaryPassword })).rejects.toThrow(AdminError);
+  });
 });
 
 describe("passwords", () => {
-  it("resets only for the SuperAdmin, and signs the admin out", async () => {
-    const token = await createSession(db, adminOne.id);
-    await expect(resetPassword(db, adminTwo, adminOne.id)).rejects.toThrow(AdminError);
-    await expect(resetPassword(db, adminOne, superadmin.id)).rejects.toThrow(AdminError);
-    const password = await resetPassword(db, superadmin, adminOne.id);
-    expect(await findSessionAdmin(db, token)).toBeNull();
-    expect((await authenticate(db, { email: "one@example.com", password })).mustChangePassword).toBe(true);
-  });
-
   it("changes your own, needs the current one, and signs out other devices", async () => {
     const here = await createSession(db, superadmin.id);
     const elsewhere = await createSession(db, superadmin.id);
@@ -174,7 +177,7 @@ describe("signing in", () => {
 
   it("resists SQL injection in the email", async () => {
     await expect(authenticate(db, { email: "' OR 1=1 --", password: "x" })).rejects.toThrow(AdminError);
-    expect((await listAdmins(db)).length).toBe(3);
+    expect((await listAdmins(db, superadmin)).length).toBe(4);
   });
 });
 

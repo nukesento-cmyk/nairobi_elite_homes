@@ -8,6 +8,15 @@ import { communities as fallbackCommunities, type Community } from "@/content/co
 import { applyJoinOverrides, getCommunityCopy, type JoinOverrides } from "@/content/community";
 import { testimonials as fallbackTestimonials, type Testimonial } from "@/content/testimonials";
 import { whyJoinCards as fallbackCards, type WhyJoinCard } from "@/content/why-join";
+import {
+  publicProperties,
+  publicProperty,
+  publishedPost,
+  publishedPosts,
+  teaserProperties,
+  type Post,
+} from "@/lib/content";
+import { db, isDatabaseConfigured } from "@/lib/db";
 import { splineEmbedUrl } from "@/lib/embeds";
 
 import {
@@ -61,32 +70,79 @@ export function isCmsConnected(): boolean {
   return Boolean(process.env.SANITY_PROJECT_ID);
 }
 
+/**
+ * Reads what reviewers added. A database outage shouldn't take the marketing site down, so
+ * it falls back and is retried soon rather than caching the empty result for hours.
+ */
+async function fromDatabase<T>(read: () => Promise<T>, fallback: T): Promise<T> {
+  if (!isDatabaseConfigured()) return fallback;
+  try {
+    return await read();
+  } catch {
+    console.error("Reading site content from the database failed.");
+    // "minutes" is the shortest that's allowed here. Anything shorter counts as dynamic,
+    // which Next.js refuses on these pages and answers with a 500.
+    cacheLife("minutes");
+    return fallback;
+  }
+}
+
+/** Sample listings stand in only until there's something real to show. */
+async function readOwnListings() {
+  const [listings, teasers] = await Promise.all([
+    fromDatabase(() => publicProperties(db), []),
+    fromDatabase(() => teaserProperties(db), []),
+  ]);
+  return { listings, teasers, replaceSamples: listings.length + teasers.length > 0 && !isCmsConnected() };
+}
+
 export async function getPublicListings(): Promise<PublicListing[]> {
   "use cache";
   cacheTag(CMS_CACHE_TAG);
   cacheLife("hours");
-  return runQuery<PublicListing[]>(publicListingsQuery);
+  const own = await readOwnListings();
+  if (own.replaceSamples) return own.listings;
+  return [...own.listings, ...(await runQuery<PublicListing[]>(publicListingsQuery))];
 }
 
 export async function getTeaserListings(): Promise<TeaserListing[]> {
   "use cache";
   cacheTag(CMS_CACHE_TAG);
   cacheLife("hours");
-  return runQuery<TeaserListing[]>(teaserListingsQuery);
+  const own = await readOwnListings();
+  if (own.replaceSamples) return own.teasers;
+  return [...own.teasers, ...(await runQuery<TeaserListing[]>(teaserListingsQuery))];
 }
 
 export async function getListing(slug: string): Promise<ListingDetail | null> {
   "use cache";
   cacheTag(CMS_CACHE_TAG);
   cacheLife("hours");
-  return runQuery<ListingDetail | null>(listingDetailQuery, { slug });
+  const own = await fromDatabase(() => publicProperty(db, slug), null);
+  return own ?? runQuery<ListingDetail | null>(listingDetailQuery, { slug });
 }
 
 export async function getPublicSlugs(): Promise<string[]> {
   "use cache";
   cacheTag(CMS_CACHE_TAG);
   cacheLife("hours");
-  return runQuery<string[]>(publicSlugsQuery);
+  const own = await readOwnListings();
+  const cms = own.replaceSamples ? [] : await runQuery<string[]>(publicSlugsQuery);
+  return [...own.listings.map(({ slug }) => slug), ...cms];
+}
+
+export async function getBlogPosts(): Promise<Post[]> {
+  "use cache";
+  cacheTag(CMS_CACHE_TAG);
+  cacheLife("hours");
+  return fromDatabase(() => publishedPosts(db), []);
+}
+
+export async function getBlogPost(slug: string): Promise<Post | null> {
+  "use cache";
+  cacheTag(CMS_CACHE_TAG);
+  cacheLife("hours");
+  return fromDatabase(() => publishedPost(db, slug), null);
 }
 
 /** Falls back to the copy in content/ until marketing has added cards to the CMS. */

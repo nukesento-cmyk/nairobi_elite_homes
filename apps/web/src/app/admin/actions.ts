@@ -14,8 +14,8 @@ import {
   deleteSession,
   resetPassword,
   updateAdmin,
-  type Admin,
 } from "@/lib/admin/accounts";
+import { requireAdmin } from "@/lib/admin/guard";
 import {
   clearSessionCookie,
   db,
@@ -35,17 +35,6 @@ export type ActionState = {
 
 const MAX_LOGINS_PER_WINDOW = 20;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-
-/**
- * Server actions are public endpoints, so each one checks the session itself. Hiding a
- * button is never what stops someone. A temporary password can't do anything but be replaced.
- */
-async function requireAdmin(): Promise<Admin> {
-  const admin = await getCurrentAdmin();
-  if (!admin) redirect("/admin/login");
-  if (admin.mustChangePassword) throw new AdminError("Choose a new password first.");
-  return admin;
-}
 
 /** Turns expected failures into a message. Anything else stays a real error. */
 async function run(work: () => Promise<ActionState | void>): Promise<ActionState> {
@@ -89,10 +78,11 @@ export async function logout(): Promise<void> {
 
 export async function createAdminAction(_: ActionState, form: FormData): Promise<ActionState> {
   return run(async () => {
-    await requireAdmin();
-    const { admin, temporaryPassword } = await createAdmin(db, {
+    const actor = await requireAdmin();
+    const { admin, temporaryPassword } = await createAdmin(db, actor, {
       email: form.get("email"),
       name: form.get("name"),
+      role: form.get("role"),
     });
     return { message: `${admin.name} can now sign in as ${admin.email}.`, temporaryPassword };
   });

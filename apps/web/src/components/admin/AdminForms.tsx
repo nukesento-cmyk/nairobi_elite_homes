@@ -106,10 +106,26 @@ export function ChangePasswordForm() {
   );
 }
 
-export function CreateAdminForm() {
+const ROLE_NAME: Record<string, string> = { admin: "Admin", reviewer: "Reviewer" };
+
+export function CreateAdminForm({ roles }: { roles: string[] }) {
   const [state, action, pending] = useActionState(createAdminAction, {});
   return (
     <form action={action}>
+      {roles.length === 1 ? (
+        <input type="hidden" name="role" value={roles[0]} />
+      ) : (
+        <label className={`${labelClass} mb-4 max-w-xs`}>
+          Role
+          <select name="role" required className={fieldClass}>
+            {roles.map((role) => (
+              <option key={role} value={role}>
+                {ROLE_NAME[role]}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={labelClass}>
           Name
@@ -121,7 +137,7 @@ export function CreateAdminForm() {
         </label>
       </div>
       <button type="submit" disabled={pending} className={`${secondaryButton} mt-4`}>
-        Add admin
+        Add {roles.length === 1 ? ROLE_NAME[roles[0]].toLowerCase() : "account"}
       </button>
       <Result state={state} />
     </form>

@@ -9,15 +9,18 @@ import {
   EditAdminForm,
   ResetPasswordForm,
 } from "@/components/admin/AdminForms";
+import { PostManager, PropertyManager } from "@/components/admin/ContentForms";
 import {
-  canDeleteAdmin,
-  canEditAdmin,
-  canResetPassword,
+  canEdit,
+  canManage,
+  canManageContent,
   listAdmins,
+  manageableRoles,
 } from "@/lib/admin/accounts";
+import { listPosts, listProperties } from "@/lib/content";
 import { db, getCurrentAdmin } from "@/lib/admin/session";
 
-const ROLE_LABEL = { superadmin: "SuperAdmin", admin: "Admin" };
+const ROLE_LABEL = { superadmin: "SuperAdmin", admin: "Admin", reviewer: "Reviewer" };
 
 async function Dashboard() {
   const me = await getCurrentAdmin();
@@ -26,7 +29,7 @@ async function Dashboard() {
   const header = (
     <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
       <div>
-        <h1 className="text-4xl text-bone-50">Admins</h1>
+        <h1 className="text-4xl text-bone-50">{canManageContent(me) ? "Content" : "Accounts"}</h1>
         <p className="mt-1 text-sm text-bone-200">
           {me.name} · {ROLE_LABEL[me.role]}
         </p>
@@ -50,43 +53,61 @@ async function Dashboard() {
     );
   }
 
-  const admins = await listAdmins(db);
+  const roles = manageableRoles(me);
+  const accounts = await listAdmins(db, me);
+  const [properties, posts] = canManageContent(me)
+    ? await Promise.all([listProperties(db, me), listPosts(db, me)])
+    : [[], []];
 
   return (
     <>
       {header}
-      <ul className="space-y-4">
-        {admins.map((admin) => (
-          <li key={admin.id} className="rounded-xl border border-border p-5">
-            <p className="text-lg text-bone-50">
-              {admin.name}
-              {admin.id === me.id && <span className="text-bone-200"> (you)</span>}
-            </p>
-            <p className="text-sm text-bone-200">
-              {admin.email} · {ROLE_LABEL[admin.role]}
-            </p>
-            {canEditAdmin(me, admin) && (
-              <details className="mt-4">
-                <summary className="cursor-pointer text-sm text-copper-400">Edit</summary>
-                <div className="mt-4">
-                  <EditAdminForm id={admin.id} name={admin.name} email={admin.email} />
-                </div>
-              </details>
-            )}
-            {(canResetPassword(me, admin) || canDeleteAdmin(me, admin)) && (
-              <div className="mt-4 flex flex-wrap items-start gap-3">
-                {canResetPassword(me, admin) && <ResetPasswordForm id={admin.id} />}
-                {canDeleteAdmin(me, admin) && <DeleteAdminForm id={admin.id} name={admin.name} />}
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
 
-      <section className="mt-12">
-        <h2 className="mb-4 text-2xl text-bone-50">Add an admin</h2>
-        <CreateAdminForm />
-      </section>
+      {canManageContent(me) && (
+        <>
+          <PropertyManager properties={properties} />
+          <PostManager posts={posts} />
+        </>
+      )}
+
+      {(roles.length > 0 || !canManageContent(me)) && (
+        <ul className="space-y-4">
+          {accounts.map((admin) => (
+            <li key={admin.id} className="rounded-xl border border-border p-5">
+              <p className="text-lg text-bone-50">
+                {admin.name}
+                {admin.id === me.id && <span className="text-bone-200"> (you)</span>}
+              </p>
+              <p className="text-sm text-bone-200">
+                {admin.email} · {ROLE_LABEL[admin.role]}
+              </p>
+              {canEdit(me, admin) && (
+                <details className="mt-4">
+                  <summary className="cursor-pointer text-sm text-copper-400">Edit</summary>
+                  <div className="mt-4">
+                    <EditAdminForm id={admin.id} name={admin.name} email={admin.email} />
+                  </div>
+                </details>
+              )}
+              {canManage(me, admin) && (
+                <div className="mt-4 flex flex-wrap items-start gap-3">
+                  <ResetPasswordForm id={admin.id} />
+                  <DeleteAdminForm id={admin.id} name={admin.name} />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {roles.length > 0 && (
+        <section className="mt-12">
+          <h2 className="mb-4 text-2xl text-bone-50">
+            {roles.length === 1 ? "Add a reviewer" : "Add an account"}
+          </h2>
+          <CreateAdminForm roles={roles} />
+        </section>
+      )}
 
       <section className="mt-12">
         <h2 className="mb-4 text-2xl text-bone-50">Change your password</h2>

@@ -9,7 +9,7 @@ export type Db = {
   query<Row>(text: string, params?: unknown[]): Promise<Row[]>;
 };
 
-export type AdminRole = "superadmin" | "admin";
+export type AdminRole = "superadmin" | "admin" | "reviewer";
 
 export type Admin = {
   id: string;
@@ -47,30 +47,41 @@ function isDuplicate(error: unknown): boolean {
   return (error as { code?: string }).code === "23505";
 }
 
-function hashToken(token: string): string {
+export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-// --- Permissions. The one rule that separates the roles lives here.
+// --- Permissions. Who can manage whom lives here and nowhere else.
 
-export function canDeleteAdmin(actor: Admin, target: Admin): boolean {
-  return actor.role === "superadmin" && target.role === "admin";
+/** The roles this person can create, edit, delete and reset. */
+export function manageableRoles(actor: Pick<Admin, "role">): AdminRole[] {
+  if (actor.role === "superadmin") return ["admin", "reviewer"];
+  if (actor.role === "admin") return ["reviewer"];
+  return [];
 }
 
-export function canEditAdmin(actor: Admin, target: Admin): boolean {
-  return actor.role === "superadmin" || target.role === "admin";
+export function canManage(actor: Pick<Admin, "role">, target: Pick<Admin, "role">): boolean {
+  return manageableRoles(actor).includes(target.role);
 }
 
-/** Resetting someone's password gives access to their account, so it isn't shared between peers. */
-export function canResetPassword(actor: Admin, target: Admin): boolean {
-  return actor.role === "superadmin" && target.role === "admin";
+/** Everyone can correct their own name and email. */
+export function canEdit(actor: Admin, target: Admin): boolean {
+  return actor.id === target.id || canManage(actor, target);
+}
+
+/** Only reviewers add properties and blogs. */
+export function canManageContent(actor: Pick<Admin, "role">): boolean {
+  return actor.role === "reviewer";
 }
 
 // --- Accounts
 
-export async function listAdmins(db: Db): Promise<Admin[]> {
+/** Only the accounts this person may manage, plus their own. */
+export async function listAdmins(db: Db, actor: Admin): Promise<Admin[]> {
   return db.query<Admin>(
-    `SELECT ${COLUMNS} FROM admins ORDER BY role = 'superadmin' DESC, created_at ASC`,
+    `SELECT ${COLUMNS} FROM admins WHERE id = $1 OR role = ANY($2::text[])
+     ORDER BY id = $1 DESC, role = 'admin' DESC, created_at ASC`,
+    [actor.id, manageableRoles(actor)],
   );
 }
 
@@ -81,16 +92,24 @@ async function getAdmin(db: Db, id: string): Promise<Admin> {
   return admin;
 }
 
-/** Only ever creates the admin role, so a second SuperAdmin can't be made from here. */
-export async function createAdmin(db: Db, input: { email: unknown; name: unknown }) {
+/** A second SuperAdmin can't be made from here: it's in nobody's manageable roles. */
+export async function createAdmin(
+  db: Db,
+  actor: Admin,
+  input: { email: unknown; name: unknown; role: unknown },
+) {
+  const role = input.role as AdminRole;
+  if (!manageableRoles(actor).includes(role)) {
+    throw new AdminError("You can't create that kind of account.");
+  }
   const email = parse(emailSchema, input.email);
   const name = parse(nameSchema, input.name);
   const temporaryPassword = generatePassword();
   try {
     const [admin] = await db.query<Admin>(
       `INSERT INTO admins (email, name, role, password_hash, must_change_password)
-       VALUES ($1, $2, 'admin', $3, true) RETURNING ${COLUMNS}`,
-      [email, name, await hashPassword(temporaryPassword)],
+       VALUES ($1, $2, $3, $4, true) RETURNING ${COLUMNS}`,
+      [email, name, role, await hashPassword(temporaryPassword)],
     );
     return { admin, temporaryPassword };
   } catch (error) {
@@ -106,7 +125,7 @@ export async function updateAdmin(
   input: { email: unknown; name: unknown },
 ): Promise<void> {
   const target = await getAdmin(db, id);
-  if (!canEditAdmin(actor, target)) throw new AdminError("You can't edit that account.");
+  if (!canEdit(actor, target)) throw new AdminError("You can't edit that account.");
   const email = parse(emailSchema, input.email);
   const name = parse(nameSchema, input.name);
   try {
@@ -123,16 +142,14 @@ export async function updateAdmin(
 
 export async function deleteAdmin(db: Db, actor: Admin, id: string): Promise<void> {
   const target = await getAdmin(db, id);
-  if (!canDeleteAdmin(actor, target)) throw new AdminError("Only the SuperAdmin can delete admins.");
+  if (!canManage(actor, target)) throw new AdminError("You can't delete that account.");
   // The role condition protects the SuperAdmin even if the checks above are ever changed.
-  await db.query(`DELETE FROM admins WHERE id = $1 AND role = 'admin'`, [id]);
+  await db.query(`DELETE FROM admins WHERE id = $1 AND role <> 'superadmin'`, [id]);
 }
 
 export async function resetPassword(db: Db, actor: Admin, id: string): Promise<string> {
   const target = await getAdmin(db, id);
-  if (!canResetPassword(actor, target)) {
-    throw new AdminError("Only the SuperAdmin can reset another admin's password.");
-  }
+  if (!canManage(actor, target)) throw new AdminError("You can't reset that password.");
   const temporaryPassword = generatePassword();
   await db.query(
     `UPDATE admins SET password_hash = $1, must_change_password = true, failed_logins = 0,
@@ -208,6 +225,26 @@ export async function authenticate(
   }
 
   await db.query(`UPDATE admins SET failed_logins = 0, locked_until = NULL WHERE id = $1`, [row.id]);
+  return getAdmin(db, row.id);
+}
+
+/**
+ * Staff signing in with Google: the account must already exist, created by whoever manages
+ * it. A temporary password nobody needs any more is replaced with one nobody knows.
+ */
+export async function authenticateWithGoogle(db: Db, email: string): Promise<Admin | null> {
+  const [row] = await db.query<{ id: string; mustChange: boolean }>(
+    `SELECT id, must_change_password AS "mustChange" FROM admins WHERE email = $1`,
+    [email.toLowerCase()],
+  );
+  if (!row) return null;
+  if (row.mustChange) {
+    await db.query(
+      `UPDATE admins SET password_hash = $1, must_change_password = false, updated_at = now()
+       WHERE id = $2`,
+      [await hashPassword(generatePassword()), row.id],
+    );
+  }
   return getAdmin(db, row.id);
 }
 

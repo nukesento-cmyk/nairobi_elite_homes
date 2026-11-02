@@ -5,6 +5,8 @@ The build sprints are complete. These need accounts, real content or a decision.
 ## Accounts and services
 - [ ] Sanity project with a **private** dataset and the webhook (`docs/cms-setup.md`). Connecting it removes all sample listings and photos.
 - [ ] Postgres database, then `pnpm seed-admins` (`docs/admin-accounts.md`).
+- [ ] Google OAuth client for sign-in (`docs/admin-accounts.md`).
+- [ ] File store for photo uploads. Reviewers paste photo links until then.
 - [ ] Turnstile and Resend, or the lead form keeps refusing submissions.
 - [ ] Analytics provider or log drain, or events and `clicked_join` counts aren't kept.
 - [ ] Vercel Pro: the Hobby plan is for non-commercial use.
