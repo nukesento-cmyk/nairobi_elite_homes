@@ -122,7 +122,7 @@ export function ListingsBrowser({ variant = "homes", listings, teasers }: Listin
       </p>
 
       {entries.length > 0 ? (
-        <PropertyGrid entries={entries} prioritizeFirstRow={variant === "homes"} />
+        <PropertyGrid entries={entries} prioritizeFirstCard={variant === "homes"} />
       ) : (
         <p className="rounded-xl border border-border p-10 text-center text-bone-200">
           Nothing public matches those filters. New listings reach the group first.

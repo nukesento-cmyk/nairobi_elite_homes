@@ -12,7 +12,6 @@
     "check-revalidation": "node scripts/check-revalidation.mjs"
   },
   "dependencies": {
-    "@base-ui/react": "^1.9.0",
     "@marsidev/react-turnstile": "^1.6.3",
     "@sanity/client": "^8.14.1",
     "class-variance-authority": "^0.7.1",

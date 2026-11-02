@@ -57,7 +57,10 @@ export function HeroMedia({ exterior, interior }: HeroMediaProps) {
         alt={exterior.alt}
         fill
         preload
-        sizes="100vw"
+        // Sits behind a dark overlay, which hides what lower quality would show. On phones,
+        // where the overlay is heaviest, half resolution makes this much faster to download.
+        quality={50}
+        sizes="(max-width: 767px) 50vw, 100vw"
         placeholder={exterior.lqip ? "blur" : "empty"}
         blurDataURL={exterior.lqip ?? undefined}
         className="object-cover"

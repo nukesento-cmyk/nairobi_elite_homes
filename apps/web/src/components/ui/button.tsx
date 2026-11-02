@@ -1,4 +1,3 @@
-import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
@@ -51,19 +50,4 @@ function buttonVariants({
   return cn(baseButtonVariants(variants), className);
 }
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  ...props
-}: ButtonPrimitive.Props & ButtonVariantProps) {
-  return (
-    <ButtonPrimitive
-      data-slot="button"
-      className={cn(baseButtonVariants({ variant, size, className }))}
-      {...props}
-    />
-  )
-}
-
-export { Button, buttonVariants }
+export { buttonVariants }

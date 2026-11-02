@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { track } from "@/lib/analytics";
-import { LEAD_AREAS, LEAD_BUDGETS, LEAD_INTENTS } from "@/lib/lead-schema";
+import { LEAD_AREAS, LEAD_BUDGETS, LEAD_INTENTS } from "@/lib/lead-options";
 
 type LeadFormProps = {
   source: string;

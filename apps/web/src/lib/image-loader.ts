@@ -1,4 +1,7 @@
 // Sanity's image CDN resizes on request, so next/image doesn't need its own optimizer.
+// AVIF at 60 looks clean on photos and is much smaller than at the usual 75.
+const DEFAULT_QUALITY = 60;
+
 export default function imageLoader({
   src,
   width,
@@ -12,7 +15,7 @@ export default function imageLoader({
 
   const url = new URL(src);
   url.searchParams.set("w", String(width));
-  url.searchParams.set("q", String(quality ?? 75));
+  url.searchParams.set("q", String(quality ?? DEFAULT_QUALITY));
   url.searchParams.set("auto", "format");
   url.searchParams.set("fit", "max");
   return url.toString();
