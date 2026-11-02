@@ -58,15 +58,16 @@ describe("public listings", () => {
     const listings = await run<PublicListing[]>(publicListingsQuery);
     expect(listings).toHaveLength(9);
     expect(listings[0].slug).toBe("sample-family-home-karen");
-    expect(listings[0].hero?.url).toBe("/sample/one.svg");
+    expect(listings[0].hero?.url).toContain("1570129477492");
   });
 
   it("returns the gallery in order", async () => {
     const detail = await run<ListingDetail>(listingDetailQuery, { slug: "sample-family-home-karen" });
-    expect(detail.gallery.map((photo) => photo.url)).toEqual([
-      "/sample/one.svg",
-      "/sample/two.svg",
-      "/sample/three.svg",
+    expect(detail.gallery.map((photo) => photo.alt)).toEqual([
+      "White two-storey house with a verandah and lawn",
+      "Dining and sitting room with bay windows",
+      "Sunlit lounge with leather sofas and plants",
+      "Bright bedroom with tall black-framed doors",
     ]);
   });
 });

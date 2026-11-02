@@ -53,7 +53,7 @@ export function PropertyGallery({ listingId, images }: PropertyGalleryProps) {
         onClick={(event) => {
           if (event.target === dialog.current) dialog.current.close();
         }}
-        className="m-auto w-[min(92vw,1100px)] rounded-xl bg-forest-950 p-3 backdrop:bg-forest-950/90"
+        className="m-auto w-[min(92vw,1100px)] rounded-xl bg-forest-950 p-3 backdrop:bg-forest-950/97"
       >
         <form method="dialog" className="mb-2 flex justify-end">
           <button
