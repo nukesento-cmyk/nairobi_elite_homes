@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check-revalidation": "node scripts/check-revalidation.mjs"
+    "check-revalidation": "node scripts/check-revalidation.mjs",
+    "seed-admins": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local scripts/seed-admins.mjs"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.6.3",
@@ -21,6 +22,7 @@
     "lucide-react": "^1.59.0",
     "motion": "^14.9.0",
     "next": "16.4.2",
+    "postgres": "^4.0.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "resend": "^6.37.0",
@@ -30,6 +32,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.14",
     "@tailwindcss/turbopack": "^4",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
