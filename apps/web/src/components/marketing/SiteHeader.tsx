@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { buttonVariants } from "@/components/ui/button";
+import { LOGO_HEIGHT, LOGO_WIDTH } from "@/config/brand";
 import { primaryNav, areasNav } from "@/config/nav";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
@@ -182,11 +184,16 @@ export function SiteHeader() {
         <Link
           href="/"
           aria-label={site.name}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-             font-[family-name:var(--font-madimi)] text-xl tracking-tight text-bone-50
-             whitespace-nowrap sm:text-2xl md:text-3xl transition-colors hover:text-copper-400"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-opacity hover:opacity-80"
         >
-          {site.name}
+          <Image
+            src="/brand/logo.svg"
+            alt=""
+            width={LOGO_WIDTH}
+            height={LOGO_HEIGHT}
+            unoptimized
+            className="h-[62px] w-auto md:h-[76px]"
+          />
         </Link>
 
         {/* RIGHT. ml-auto keeps it here when the left nav is hidden on smaller screens. */}

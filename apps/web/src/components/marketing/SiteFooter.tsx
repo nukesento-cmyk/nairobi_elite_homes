@@ -1,6 +1,8 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
+import { LOGO_HEIGHT, LOGO_WIDTH } from "@/config/brand";
 import { primaryNav } from "@/config/nav";
 import { site } from "@/config/site";
 import { getCommunityCopy } from "@/content/community";
@@ -21,8 +23,15 @@ export async function SiteFooter() {
     <footer className="border-t border-border pb-24 md:pb-0">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
         <div>
-          <p className="font-heading text-xl text-bone-50">{site.name}</p>
-          <p className="mt-3 mb-6 max-w-sm text-sm text-bone-200">
+          <Image
+            src="/brand/logo.svg"
+            alt={site.name}
+            width={LOGO_WIDTH}
+            height={LOGO_HEIGHT}
+            unoptimized
+            className="h-24 w-auto"
+          />
+          <p className="mt-5 mb-6 max-w-sm text-sm text-bone-200">
             A private community for serious buyers, renters, sellers and landowners in
             Nairobi&apos;s premium areas.
           </p>

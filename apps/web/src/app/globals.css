@@ -82,7 +82,7 @@
 /* The site is always dark: forest base, copper actions, bone text. */
 :root {
   --strip-h: 40px;
-  --header-h: 60px;
+  --header-h: 72px;
   color-scheme: dark;
   --background: var(--color-forest-950);
   --foreground: var(--color-bone-50);
@@ -148,7 +148,7 @@ html:has(#mobile-menu) [data-floating-whatsapp] {
 }
 @media (min-width: 768px) {
   :root {
-    --header-h: 72px;
+    --header-h: 88px;
   }
 }
 

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter, Madimi_One } from "next/font/google";
+import { Fraunces, Inter } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { LenisProvider } from "@/components/motion/LenisProvider";
@@ -12,14 +12,6 @@ const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
   weight: ["400", "600"],
-  display: "swap",
-});
-
-// The logo only.
-const madimi = Madimi_One({
-  variable: "--font-madimi",
-  subsets: ["latin"],
-  weight: "400",
   display: "swap",
 });
 
@@ -43,7 +35,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${fraunces.variable} ${inter.variable} ${madimi.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         <LenisProvider>{children}</LenisProvider>

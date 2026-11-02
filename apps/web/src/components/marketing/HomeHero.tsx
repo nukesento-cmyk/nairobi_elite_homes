@@ -19,7 +19,8 @@ export async function HomeHero() {
       className={cn(
         "grain relative overflow-hidden bg-linear-to-b from-forest-900 to-forest-950 py-section",
         // Runs up under the header, which is transparent at the top of the page.
-        heroExterior && "-mt-(--header-h) flex min-h-[85svh] items-end",
+        heroExterior &&
+          "-mt-(--header-h) flex min-h-[85svh] items-end pt-[calc(var(--spacing-section)+var(--header-h))]",
       )}
     >
       {heroExterior && (
