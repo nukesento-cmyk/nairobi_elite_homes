@@ -21,6 +21,7 @@ import {
 } from "@/components/admin/BrandForms";
 import { AcquisitionPanel } from "@/components/admin/AcquisitionPanel";
 import { DeleteItem, PostManager, PropertyManager } from "@/components/admin/ContentForms";
+import { OnboardingPanel } from "@/components/admin/OnboardingPanel";
 import { AdminOverview } from "@/components/admin/AdminOverview";
 import { RequestRow, ReviewItem } from "@/components/admin/ReviewForms";
 import { deletePostAction, deletePropertyAction } from "@/app/admin/content-actions";
@@ -38,6 +39,8 @@ import {
 } from "@/lib/admin/accounts";
 import { accessRequestStats, listAccessRequests } from "@/lib/access-requests";
 import { emailSender, researchConfig } from "@/lib/acquisition/cron";
+import { missingDocumentSettings } from "@/lib/acquisition/document-store";
+import { listOnboarding } from "@/lib/acquisition/onboarding";
 import { countDoNotContact, listLeads, listPendingDomains, listRecipients, listReports } from "@/lib/acquisition/dashboard";
 import { isResearchEnabled } from "@/lib/acquisition/settings";
 import { DEFAULT_BRAND_ID, listBrands, type Brand } from "@/lib/brands";
@@ -115,15 +118,16 @@ async function Dashboard() {
 
   const researchSettings = researchConfig(process.env);
   const researchOn = isSuperadmin && (await isResearchEnabled(db, DEFAULT_BRAND_ID));
-  const [acquisitionReports, reportRecipients, pendingDomains, acquisitionLeads, doNotContactCount] = isSuperadmin
+  const [acquisitionReports, reportRecipients, pendingDomains, acquisitionLeads, doNotContactCount, onboardingCards] = isSuperadmin
     ? await Promise.all([
         listReports(db, me, DEFAULT_BRAND_ID),
         listRecipients(db, me, DEFAULT_BRAND_ID),
         listPendingDomains(db, me, DEFAULT_BRAND_ID),
         listLeads(db, me, DEFAULT_BRAND_ID),
         countDoNotContact(db, me),
+        listOnboarding(db, me, DEFAULT_BRAND_ID),
       ])
-    : [[], [], [], [], 0];
+    : [[], [], [], [], 0, []];
 
   const uploads = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
   const [requests, queue] = canReview(me)
@@ -135,6 +139,7 @@ async function Dashboard() {
   const queueCount = queue.properties.length + queue.posts.length;
   const sections = [
     isSuperadmin && { href: "#acquisition", label: `Acquisition (${acquisitionLeads.length})` },
+    isSuperadmin && { href: "#onboarding", label: `Onboarding (${onboardingCards.length})` },
     isSuperadmin && { href: "#brands", label: `Brands (${brands.length})` },
     canReview(me) && { href: "#overview", label: "Overview" },
     canManageProperties(me) && { href: "#properties", label: `Properties (${properties.length})` },
@@ -170,6 +175,10 @@ async function Dashboard() {
           leads={acquisitionLeads}
           doNotContactCount={doNotContactCount}
         />
+      )}
+
+      {isSuperadmin && (
+        <OnboardingPanel cards={onboardingCards} missing={missingDocumentSettings(process.env)} uploads={uploads} />
       )}
 
       {isSuperadmin && (

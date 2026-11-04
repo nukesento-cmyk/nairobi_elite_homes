@@ -68,6 +68,24 @@ Under Acquisition, each approved lead has **Log a call**. It records the outcome
 
 Only the SuperAdmin can use these today. A caller role and assigned leads are still to be built.
 
+## Onboarding
+
+Once a lead has expressed interest, the SuperAdmin presses **Start onboarding**. The property can't be published until every step is done, whichever role tries.
+
+1. **Create an upload link** and send it to the owner. It works for 7 days, is shown once, and only its hash is stored. Its secret sits after the `#`, so it never reaches server logs or analytics.
+2. **Download and check each document**, then mark it checked. Downloads are logged, and always save to disk rather than opening in the page.
+3. **Confirm identity**, then **ownership or authority**. Only a checked proof of ownership makes someone a `verified_owner`. Someone with authority stays a `representative`.
+4. **Confirm availability, and the price and terms.**
+5. **Confirm the signed marketing authority.** This moves the lead to Mandate Secured.
+6. **Send for final approval**, with the listing details and who owns the photos. The property goes to Approvals as pending, at the agreed price.
+7. **An admin who didn't verify the documents approves it** under Approvals. The database refuses the person who verified them, so this needs a second person.
+
+**Storage:** documents are encrypted with AES-256-GCM using `ACQUISITION_DOCUMENT_KEY`, then kept in a private Blob store through `ACQUISITION_BLOB_TOKEN`. Never change the key, or existing documents can't be opened. Keep a copy somewhere safe, because losing it loses the documents.
+
+**Retention:** the morning job deletes documents past their date: 90 days for most, 3 years for signed marketing authorities. Counsel should confirm these periods.
+
+**Files:** PDF, JPG, PNG or WebP, up to 4 MB through the link and 1 MB through the dashboard. The type is read from the file itself. Files aren't virus-scanned, so open them carefully.
+
 ## Setup
 
 1. Add these production variables in Vercel:

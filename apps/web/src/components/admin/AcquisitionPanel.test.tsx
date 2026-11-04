@@ -6,6 +6,10 @@ import type { RunSummary } from "@/lib/acquisition/dashboard";
 import { AcquisitionPanel } from "./AcquisitionPanel";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/app/admin/onboarding-actions", () => ({
+  confirmStepAction: vi.fn(), failOnboardingAction: vi.fn(), issueLinkAction: vi.fn(), removeDocumentAction: vi.fn(),
+  startOnboardingAction: vi.fn(), submitForApprovalAction: vi.fn(), uploadDocumentAction: vi.fn(), verifyDocumentAction: vi.fn(),
+}));
 vi.mock("@/app/admin/acquisition-actions", () => ({
   setResearchAction: vi.fn(),
   logCallAction: vi.fn(),

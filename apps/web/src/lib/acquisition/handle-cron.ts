@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { createClaudeResearcher } from "./ai";
 import { emailSender, isAuthorizedCron, missingConfig, monitorPinger, recipients, researchConfig } from "./cron";
 import { DAILY_JOB, runDailyJob } from "./daily-job";
+import { documentStoreFromEnv } from "./document-store";
 import { runResearchSlot } from "./research";
 import { isResearchEnabled } from "./settings";
 
@@ -70,6 +71,7 @@ export async function handleCronRequest(request: Request, startedBy: "cron" | "w
       db,
       brandId: DEFAULT_BRAND_ID,
       sendEmail: emailSender(env),
+      documents: documentStoreFromEnv(env) ?? undefined,
       researchMissing: (() => {
         const config = researchConfig(env);
         return config.state === "misconfigured" ? config.missing : [];

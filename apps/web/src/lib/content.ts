@@ -192,20 +192,45 @@ export async function createProperty(db: Db, actor: Admin, input: unknown): Prom
   return row;
 }
 
+/**
+ * A property from owner onboarding. It always starts pending, whoever submits it, and the
+ * database won't let it be approved until the onboarding behind it is complete.
+ */
+export async function createOnboardedProperty(db: Db, actor: Admin, brandId: string, onboardingId: string, input: unknown): Promise<void> {
+  const property = parse(propertySchema, input);
+  await db.query(
+    `INSERT INTO properties (title, vertical, status, area, price_amount, price_currency, price_period,
+       beds, baths, acreage, sqm, title_status, zoning, description, features, hero_url, hero_alt,
+       gallery_urls, matterport_id, slug, created_by, brand_id, review_status, acq_onboarding_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::text[],$16,$17,$18::text[],$19,$20,$21,$22,'pending',$23)`,
+    [...propertyParams(property), makeSlug(property.title), actor.id, brandId, onboardingId],
+  );
+}
+
+/** The database's rule on publishing onboarded properties, in words the person can act on. */
+async function withPublishingRules<T>(work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (error) {
+    if ((error as { code?: string }).code === "P0001") throw new AdminError((error as Error).message);
+    throw error;
+  }
+}
+
 export async function updateProperty(db: Db, actor: Admin, id: string, input: unknown): Promise<void> {
   requirePropertyEditor(actor);
   assertId(id);
   const property = parse(propertySchema, input);
   // The slug stays the same, so links already shared keep working. A reviewer's edit goes back
   // for approval, or approval could be sidestepped by changing something after it's given.
-  const rows = await db.query(
+  const rows = await withPublishingRules(() => db.query(
     `UPDATE properties SET title=$1, vertical=$2, status=$3, area=$4, price_amount=$5, price_currency=$6,
        price_period=$7, beds=$8, baths=$9, acreage=$10, sqm=$11, title_status=$12, zoning=$13,
        description=$14, features=$15::text[], hero_url=$16, hero_alt=$17, gallery_urls=$18::text[],
        matterport_id=$19, review_status=$22, review_note=NULL, updated_at=now()
      WHERE id=$20 AND ${inScope("$21")} RETURNING id`,
     [...propertyParams(property), id, brandScope(actor), reviewStatusFor(actor)],
-  );
+  ));
   if (rows.length === 0) throw new AdminError("That item no longer exists.");
 }
 
@@ -405,11 +430,34 @@ export async function approveItem(db: Db, actor: Admin, kind: string, id: string
   assertId(id);
   const table = reviewTable(kind);
   const publishedAt = table === "posts" ? ", published_at = now()" : "";
-  const rows = await db.query(
+
+  // For a property from owner onboarding, this is the final approval, by someone other than
+  // whoever verified the documents. The database refuses it otherwise.
+  if (table === "properties") {
+    const [property] = await db.query<{ acq_onboarding_id: string | null }>(
+      `SELECT acq_onboarding_id FROM properties WHERE id = $1 AND review_status = 'pending' AND ${inScope("$2")}`,
+      [id, brandScope(actor)],
+    );
+    if (property?.acq_onboarding_id) {
+      try {
+        await db.query(
+          `UPDATE acq_onboarding SET final_approved_by = $2, final_approved_at = now(), updated_by = $3 WHERE id = $1`,
+          [property.acq_onboarding_id, actor.id, actor.id],
+        );
+      } catch (error) {
+        if ((error as { code?: string }).code === "23514") {
+          throw new AdminError("You verified this owner's documents, so someone else has to give the final approval.");
+        }
+        throw error;
+      }
+    }
+  }
+
+  const rows = await withPublishingRules(() => db.query(
     `UPDATE ${table} SET review_status = 'approved', review_note = NULL${publishedAt}
      WHERE id = $1 AND review_status = 'pending' AND ${inScope("$2")} RETURNING id`,
     [id, brandScope(actor)],
-  );
+  ));
   if (rows.length === 0) throw new AdminError("That's no longer waiting for approval.");
 }
 

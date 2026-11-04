@@ -14,6 +14,7 @@ import {
   SendReportForm,
   SuppressContactForm,
 } from "./AcquisitionForms";
+import { StartOnboardingButton } from "./OnboardingForms";
 
 function outcome(run: RunSummary): string {
   if (run.status === "failed") return `Failed: ${run.error ?? "unknown error"}`;
@@ -92,6 +93,9 @@ function LeadCard({ lead }: { lead: LeadRow }) {
         </div>
       )}
       {lead.status === "researched" && <LeadDecisionForms id={lead.id} name={lead.name} />}
+      {["interested", "meeting_scheduled", "negotiating", "follow_up"].includes(lead.status) && (
+        <div className="mt-3"><StartOnboardingButton id={lead.id} /></div>
+      )}
       {lead.status !== "researched" && (
         <details className="mt-3">
           <summary className="cursor-pointer text-sm text-copper-400">Log a call</summary>

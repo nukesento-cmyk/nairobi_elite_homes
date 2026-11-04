@@ -495,6 +495,30 @@ BEGIN
   PERFORM set_config('acq.erasure', 'off', true);
 END $$;
 
+-- What the checklist records beyond its dates.
+ALTER TABLE acq_onboarding ADD COLUMN IF NOT EXISTS agreed_amount numeric CHECK (agreed_amount > 0);
+ALTER TABLE acq_onboarding ADD COLUMN IF NOT EXISTS agreed_currency text CHECK (agreed_currency IN ('KES', 'USD'));
+ALTER TABLE acq_onboarding ADD COLUMN IF NOT EXISTS agreed_period text CHECK (agreed_period IN ('sale', 'month'));
+ALTER TABLE acq_onboarding ADD COLUMN IF NOT EXISTS marketing_terms text;
+ALTER TABLE acq_onboarding ADD COLUMN IF NOT EXISTS photo_rights text;
+-- Only one onboarding at a time per prospect, unless an earlier one failed.
+CREATE UNIQUE INDEX IF NOT EXISTS acq_onboarding_one_active ON acq_onboarding (prospect_id) WHERE failed_reason IS NULL AND submitted_at IS NULL;
+
+ALTER TABLE acq_onboarding_documents ADD COLUMN IF NOT EXISTS content_type text;
+ALTER TABLE acq_onboarding_documents ADD COLUMN IF NOT EXISTS size_bytes integer;
+CREATE INDEX IF NOT EXISTS acq_onboarding_documents_onboarding ON acq_onboarding_documents (onboarding_id);
+
+-- Upload links for owners. Only a hash of the secret is kept, so the database can't reveal a working link.
+CREATE TABLE IF NOT EXISTS acq_onboarding_links (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  onboarding_id uuid NOT NULL REFERENCES acq_onboarding (id) ON DELETE CASCADE,
+  token_hash text NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  revoked_at timestamptz,
+  created_by uuid REFERENCES admins (id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 -- A property that came through acquisition can't be approved until onboarding is complete,
 -- whichever role submits it. Properties added by hand leave this empty and are unaffected.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS acq_onboarding_id uuid REFERENCES acq_onboarding (id) ON DELETE RESTRICT;

@@ -7,6 +7,7 @@ const SECTIONS: { heading: string; items: string[] }[] = [
       "When you ask to join the private community: your name, WhatsApp number, and any email address and message you give us.",
       "When you send an enquiry: the contact details and message you enter in the form.",
       "When you submit a property to list: your name, any company name, phone number and email address, your connection to the property, its details and asking price, and a record of what you agreed to and when.",
+      "When you list a property with us: the identity, ownership and authority documents and photos you send, and the signed marketing authority.",
       "Business contact details that companies publish on their own websites, when we research property companies that may want our marketing services.",
     ],
   },
@@ -16,6 +17,7 @@ const SECTIONS: { heading: string; items: string[] }[] = [
       "To sign you in and keep you signed in.",
       "To reply to your enquiry or your request to join, including by WhatsApp or email.",
       "To contact you by phone or email about marketing a property you submitted, and about related property services. You can tell us to stop at any time, on a call or using the contact details below, and we'll keep a record so we don't contact you again.",
+      "To confirm your identity and your right to market a property. These documents are encrypted and stored privately, and only our verification team can open them.",
       "We don't sell your information, and we don't use your Google account information for advertising.",
     ],
   },
@@ -28,7 +30,7 @@ const SECTIONS: { heading: string; items: string[] }[] = [
   {
     heading: "How long we keep it",
     items: [
-      "Your account stays until you ask us to delete it, or staff remove it. Requests to join are deleted once they're no longer needed. Sign-in sessions end after 30 days at most.",
+      "Your account stays until you ask us to delete it, or staff remove it. Requests to join are deleted once they're no longer needed. Identity and ownership documents are deleted after 90 days, and signed marketing authorities after 3 years. Sign-in sessions end after 30 days at most.",
     ],
   },
   {

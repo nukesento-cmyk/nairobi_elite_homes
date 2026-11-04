@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { Db } from "@/lib/admin/accounts";
 
+import { purgeExpiredDocuments, type DocumentDeps } from "./onboarding";
 import { checkHostPolicy } from "./policy";
 import { buildDailyReport, type Report, type ReportLead } from "./report";
 import { nairobiDate, runJob, type RunResult, type Step } from "./runner";
@@ -22,6 +23,8 @@ export type DailyJobDeps = {
   researchMissing?: string[];
   /** Extra addresses for failure alerts, used even if the database is what's down. */
   alertTo?: string[];
+  /** Where onboarding documents live, so old ones can be deleted. Absent until that's set up. */
+  documents?: Omit<DocumentDeps, "db">;
   /** Tells the outside monitor the report is ready. Optional until the monitor is set up. */
   pingMonitor?: () => Promise<void>;
   now?: () => Date;
@@ -150,6 +153,18 @@ export async function runDailyJob(deps: DailyJobDeps, startedBy: "cron" | "watch
               : "Switched on.",
         };
         return { researchOn, checks: [...(await runSafetyChecks(deps.db, deps.brandId)), research] };
+      },
+    },
+    {
+      // Runs daily, and never holds up the report: anything it misses is tried again tomorrow.
+      name: "purge_documents",
+      run: async () => {
+        if (!deps.documents) return { skipped: "not_set_up" };
+        try {
+          return await purgeExpiredDocuments({ db: deps.db, ...deps.documents });
+        } catch (cause) {
+          return { error: cause instanceof Error ? cause.message : String(cause) };
+        }
       },
     },
     {
