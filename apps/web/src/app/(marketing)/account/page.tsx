@@ -1,32 +1,46 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { GoogleButton } from "@/components/GoogleButton";
+import { UserChangePasswordForm } from "@/components/UserForms";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentBuyer } from "@/lib/auth/buyer-session";
-import { isGoogleConfigured } from "@/lib/auth/google";
-import { isDatabaseConfigured } from "@/lib/db";
 
 import { buyerSignOut } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Sign in",
-  description: "Sign in to NairobiEliteHomes for free with your Google account.",
+  title: "Your account",
+  description: "Your NairobiEliteHomes account.",
   robots: { index: false, follow: false },
 };
 
-const ERRORS: Record<string, string> = {
-  "google-failed": "Google sign-in didn't complete. Please try again.",
-  "not-configured": "Sign-in isn't available yet.",
-};
+async function AccountContent() {
+  const buyer = await getCurrentBuyer();
+  if (!buyer) redirect("/login");
 
-async function AccountContent({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const [{ error }, buyer] = await Promise.all([searchParams, getCurrentBuyer()]);
+  const signOut = (
+    <form action={buyerSignOut} className="mt-6">
+      <button type="submit" className="text-sm text-bone-200 underline underline-offset-4">
+        Sign out
+      </button>
+    </form>
+  );
 
-  if (buyer) {
+  // A temporary password came from a member of staff, so it's replaced before anything else.
+  if (buyer.mustChangePassword) {
     return (
       <>
+        <h1 className="text-4xl text-bone-50">Choose your own password</h1>
+        <p className="mt-2 mb-8 text-bone-200">You&apos;re using a temporary password. Replace it to continue.</p>
+        <UserChangePasswordForm />
+        {signOut}
+      </>
+    );
+  }
+
+  return (
+    <>
         <h1 className="text-4xl text-bone-50">Welcome, {buyer.name}</h1>
         <p className="mt-2 text-bone-200">Signed in as {buyer.email}</p>
         <div className="mt-8 rounded-xl border border-border p-6">
@@ -44,33 +58,22 @@ async function AccountContent({ searchParams }: { searchParams: Promise<{ error?
             <Link href="/blog" className="underline underline-offset-4">Blog</Link>
           </div>
         </div>
-        <form action={buyerSignOut} className="mt-6">
-          <button type="submit" className="text-sm text-bone-200 underline underline-offset-4">
-            Sign out
-          </button>
-        </form>
+        {buyer.hasPassword && (
+          <details className="mt-6 rounded-xl border border-border p-6">
+            <summary className="cursor-pointer text-copper-400">Change your password</summary>
+            <div className="mt-5"><UserChangePasswordForm /></div>
+          </details>
+        )}
+        {signOut}
       </>
-    );
-  }
-
-  const available = isGoogleConfigured() && isDatabaseConfigured();
-  return (
-    <>
-      <h1 className="text-4xl text-bone-50">Sign in</h1>
-      <p className="mt-2 mb-8 text-bone-200">Free, with your Google account. There&apos;s no password to remember.</p>
-      {error && ERRORS[error] && (
-        <p role="alert" className="mb-4 text-sm text-terracotta">{ERRORS[error]}</p>
-      )}
-      {available ? <GoogleButton audience="buyer" /> : <p className="text-bone-200">Sign-in isn&apos;t available yet.</p>}
-    </>
   );
 }
 
-export default function AccountPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default function AccountPage() {
   return (
     <section className="mx-auto min-h-[50vh] max-w-md px-4 py-14 sm:px-6 md:py-20">
       <Suspense>
-        <AccountContent searchParams={searchParams} />
+        <AccountContent />
       </Suspense>
     </section>
   );

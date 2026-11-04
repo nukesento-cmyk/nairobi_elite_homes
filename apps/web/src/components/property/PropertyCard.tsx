@@ -9,9 +9,11 @@ type PropertyCardProps = {
   listing: PublicListing;
   /** Loads the photo immediately. For cards visible without scrolling. */
   priority?: boolean;
+  /** The start of the link, on a brand's own site. */
+  base?: string;
 };
 
-export function PropertyCard({ listing, priority = false }: PropertyCardProps) {
+export function PropertyCard({ listing, priority = false, base = "" }: PropertyCardProps) {
   return (
     <article className="group relative overflow-hidden rounded-xl border border-border motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out-expo motion-safe:hover:-translate-y-1">
       <div
@@ -45,7 +47,7 @@ export function PropertyCard({ listing, priority = false }: PropertyCardProps) {
         <h3 className="mt-1 text-xl text-bone-50">
           {/* The stretched link makes the whole card clickable with a single tab stop. */}
           <Link
-            href={`/listings/${listing.slug}`}
+            href={`${base}/listings/${listing.slug}`}
             className="underline-draw after:absolute after:inset-0"
           >
             {listing.title}

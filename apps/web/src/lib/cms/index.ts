@@ -75,7 +75,7 @@ export function isCmsConnected(): boolean {
  * Reads what reviewers added. A database outage shouldn't take the marketing site down, so
  * it falls back and is retried soon rather than caching the empty result for hours.
  */
-async function fromDatabase<T>(read: () => Promise<T>, fallback: T): Promise<T> {
+export async function fromDatabase<T>(read: () => Promise<T>, fallback: T): Promise<T> {
   if (!isDatabaseConfigured()) return fallback;
   try {
     return await read();

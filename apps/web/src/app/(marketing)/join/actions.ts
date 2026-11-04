@@ -4,6 +4,8 @@ import { headers } from "next/headers";
 
 import { AdminError } from "@/lib/admin/accounts";
 import { createAccessRequest } from "@/lib/access-requests";
+import { parseBase } from "@/lib/brand-site";
+import { brandIdForVisitor } from "@/lib/brands";
 import { db, isDatabaseConfigured } from "@/lib/db";
 import { isRateLimited } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
@@ -18,7 +20,8 @@ export async function requestAccess(_: RequestState, form: FormData): Promise<Re
   if (form.get("company")) return { sent: true };
   if (!isDatabaseConfigured()) return { error: "Requests aren't open yet. Please message us on WhatsApp." };
 
-  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const requestHeaders = await headers();
+  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   if (isRateLimited(`access:${ip}`, MAX_REQUESTS_PER_WINDOW, WINDOW_MS)) {
     return { error: "Too many requests. Please try again later." };
   }
@@ -29,12 +32,17 @@ export async function requestAccess(_: RequestState, form: FormData): Promise<Re
   }
 
   try {
-    await createAccessRequest(db, {
-      name: form.get("name"),
-      phone: form.get("phone"),
-      email: form.get("email") ?? "",
-      message: form.get("message") ?? "",
-    });
+    // A request made on a brand's own site goes to that brand's admins.
+    await createAccessRequest(
+      db,
+      {
+        name: form.get("name"),
+        phone: form.get("phone"),
+        email: form.get("email") ?? "",
+        message: form.get("message") ?? "",
+      },
+      await brandIdForVisitor(db, parseBase(form.get("base")), requestHeaders.get("host")),
+    );
     return { sent: true };
   } catch (error) {
     if (error instanceof AdminError) return { error: error.message };

@@ -203,7 +203,7 @@ Build these as `{ icon, title, problem, solution, ctaLabel, ctaSource }` CMS ite
   ```ts
   type Property = {
     id: string
-    vertical: "residential" | "land" | "commercial"   // ← the multi-vertical key
+    vertical: "residential" | "land" | "commercial" 
     title, slug, description
     location: { area: string, subArea?: string, coords?: [number,number], isExactPublic: boolean }
     price: { amount: number, currency: "KES"|"USD", period?: "sale"|"month" }

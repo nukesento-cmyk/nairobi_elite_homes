@@ -13,16 +13,34 @@ import {
 } from "@/app/admin/actions";
 import { buttonVariants } from "@/components/ui/button";
 
-const fieldClass =
+export const fieldClass =
   "mt-1.5 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-bone-50 focus-visible:outline-2 focus-visible:outline-copper-400";
-const labelClass = "block text-sm text-bone-200";
-const secondaryButton = buttonVariants({
+export const labelClass = "block text-sm text-bone-200";
+export const secondaryButton = buttonVariants({
   variant: "outline",
   size: "default",
   className: "h-10 bg-transparent px-4",
 });
 
-function Result({ state }: { state: ActionState }) {
+export type BrandOption = { id: string; name: string };
+
+/** Only the SuperAdmin chooses. Everyone else always works in their own brand. */
+export function BrandField({ brands }: { brands: BrandOption[] }) {
+  return (
+    <label className={`${labelClass} mb-4 max-w-xs`}>
+      Brand
+      <select name="brandId" required className={fieldClass}>
+        {brands.map((brand) => (
+          <option key={brand.id} value={brand.id}>
+            {brand.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+export function Result({ state }: { state: ActionState }) {
   return (
     <>
       {state.error && (
@@ -108,10 +126,11 @@ export function ChangePasswordForm() {
 
 const ROLE_NAME: Record<string, string> = { admin: "Admin", reviewer: "Reviewer" };
 
-export function CreateAdminForm({ roles }: { roles: string[] }) {
+export function CreateAdminForm({ roles, brands }: { roles: string[]; brands?: BrandOption[] }) {
   const [state, action, pending] = useActionState(createAdminAction, {});
   return (
     <form action={action}>
+      {brands && <BrandField brands={brands} />}
       {roles.length === 1 ? (
         <input type="hidden" name="role" value={roles[0]} />
       ) : (

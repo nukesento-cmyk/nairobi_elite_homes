@@ -13,7 +13,7 @@ export const primaryNav: NavItem[] = [
   { label: "Why join", href: "/join" },
   { label: "Blog", href: "/blog" },
   { label: "Contact", href: "/contact" },
-  { label: "Sign in", href: "/account" },
+  { label: "Sign in", href: "/login" },
 ];
 
 export const areasNav: AreaItem[] = [

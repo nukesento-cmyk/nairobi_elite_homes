@@ -13,6 +13,7 @@ import {
   setAccessRequestStatus,
 } from "@/lib/access-requests";
 import { profileFromIdToken } from "@/lib/auth/google";
+import { DEFAULT_BRAND_ID } from "@/lib/brands";
 import { estimateBread, formatBread } from "@/lib/bread";
 import {
   createBuyerSession,
@@ -81,17 +82,24 @@ beforeEach(async () => {
   await pg.exec(readFileSync("db/schema.sql", "utf8"));
   db = { query: async <Row>(text: string, params?: unknown[]) => (await pg.query<Row>(text, params)).rows };
   [reviewer] = await db.query<Admin>(
-    `INSERT INTO admins (email, name, role, password_hash) VALUES ('r@example.com', 'Rev', 'reviewer', 'x')
-     RETURNING id, email, name, role, must_change_password AS "mustChangePassword", created_at AS "createdAt"`,
+    `INSERT INTO admins (email, name, role, password_hash, brand_id) VALUES ('r@example.com', 'Rev', 'reviewer', 'x', '${DEFAULT_BRAND_ID}')
+     RETURNING id, email, name, role, brand_id AS "brandId", created_by AS "createdBy", must_change_password AS "mustChangePassword", created_at AS "createdAt"`,
   );
 });
 
 describe("properties", () => {
-  it("lets only reviewers add them", async () => {
+  it("lets reviewers and admins add them, but not the SuperAdmin", async () => {
     await createProperty(db, reviewer, property);
-    for (const role of ["admin", "superadmin"] as const) {
-      await expect(createProperty(db, staff(role), property)).rejects.toThrow(AdminError);
-    }
+    await createProperty(db, staff("admin"), property);
+    await expect(createProperty(db, staff("superadmin"), property)).rejects.toThrow(AdminError);
+  });
+
+  it("needs no second person when an admin adds or edits one", async () => {
+    const row = await createProperty(db, staff("admin"), property);
+    expect(row.reviewStatus).toBe("approved");
+    expect((await publicProperty(db, row.slug))?.title).toBe(property.title);
+    await updateProperty(db, staff("admin"), row.id, { ...property, title: "Renamed" });
+    expect((await publicProperty(db, row.slug))?.title).toBe("Renamed");
   });
 
   it("stays off the site until approved", async () => {
@@ -176,15 +184,17 @@ describe("approval", () => {
 });
 
 describe("removing", () => {
-  it("lets the SuperAdmin and reviewers remove live content, but not admins", async () => {
+  it("lets the SuperAdmin, admins and reviewers remove properties", async () => {
     const row = await live();
-    await expect(deleteProperty(db, staff("admin"), row.id)).rejects.toThrow(AdminError);
     await expect(liveContent(db, staff("admin"))).rejects.toThrow(AdminError);
     expect((await liveContent(db, staff("superadmin"))).properties.length).toBe(1);
     await deleteProperty(db, staff("superadmin"), row.id);
     expect(await publicProperties(db)).toEqual([]);
     const second = await live();
     await deleteProperty(db, reviewer, second.id);
+    expect(await publicProperties(db)).toEqual([]);
+    const third = await live();
+    await deleteProperty(db, staff("admin"), third.id);
     expect(await publicProperties(db)).toEqual([]);
   });
 });
@@ -233,13 +243,13 @@ describe("community link requests", () => {
   const request = { name: "Ann Buyer", phone: "0712 345 678", email: "", message: "" };
 
   it("logs a request, without needing an account", async () => {
-    await createAccessRequest(db, request);
+    await createAccessRequest(db, request, DEFAULT_BRAND_ID);
     const [row] = await listAccessRequests(db, staff("admin"));
     expect(row).toMatchObject({ name: "Ann Buyer", status: "pending", email: null, message: null });
   });
 
   it("lets admins and the SuperAdmin see and handle them, not reviewers", async () => {
-    await createAccessRequest(db, request);
+    await createAccessRequest(db, request, DEFAULT_BRAND_ID);
     await expect(listAccessRequests(db, reviewer)).rejects.toThrow(AdminError);
     const [row] = await listAccessRequests(db, staff("superadmin"));
     await expect(setAccessRequestStatus(db, reviewer, row.id, "link_sent")).rejects.toThrow(AdminError);
@@ -252,8 +262,8 @@ describe("community link requests", () => {
   });
 
   it("doesn't pile up repeats while one is waiting", async () => {
-    await createAccessRequest(db, request);
-    await createAccessRequest(db, request);
+    await createAccessRequest(db, request, DEFAULT_BRAND_ID);
+    await createAccessRequest(db, request, DEFAULT_BRAND_ID);
     expect((await listAccessRequests(db, staff("admin"))).length).toBe(1);
   });
 
@@ -263,7 +273,7 @@ describe("community link requests", () => {
     ["a bad email", { email: "nope" }],
     ["a long message", { message: "x".repeat(501) }],
   ])("refuses %s", async (_, change) => {
-    await expect(createAccessRequest(db, { ...request, ...change })).rejects.toThrow(AdminError);
+    await expect(createAccessRequest(db, { ...request, ...change }, DEFAULT_BRAND_ID)).rejects.toThrow(AdminError);
   });
 });
 
@@ -271,9 +281,9 @@ describe("request stats and bread", () => {
   const request = { email: "", message: "", name: "Ann Buyer" };
 
   it("counts every status, and fills 14 days including today", async () => {
-    await createAccessRequest(db, { ...request, phone: "0700000001" });
-    await createAccessRequest(db, { ...request, phone: "0700000002" });
-    await createAccessRequest(db, { ...request, phone: "0700000003" });
+    await createAccessRequest(db, { ...request, phone: "0700000001" }, DEFAULT_BRAND_ID);
+    await createAccessRequest(db, { ...request, phone: "0700000002" }, DEFAULT_BRAND_ID);
+    await createAccessRequest(db, { ...request, phone: "0700000003" }, DEFAULT_BRAND_ID);
     const rows = await listAccessRequests(db, staff("admin"));
     await setAccessRequestStatus(db, staff("admin"), rows[0].id, "link_sent");
     await setAccessRequestStatus(db, staff("admin"), rows[1].id, "declined");
@@ -299,17 +309,17 @@ describe("buyers", () => {
   const profile = { sub: "google-1", email: "Buyer@Example.com", name: "Buyer" };
 
   it("creates a buyer once, and keeps them on later sign-ins", async () => {
-    const first = await upsertBuyer(db, profile);
-    const again = await upsertBuyer(db, { ...profile, name: "New Name" });
-    expect(again.id).toBe(first.id);
-    expect(again.name).toBe("New Name");
-    expect(again.email).toBe("buyer@example.com");
+    const first = await upsertBuyer(db, profile, DEFAULT_BRAND_ID);
+    const again = await upsertBuyer(db, { ...profile, name: "New Name" }, DEFAULT_BRAND_ID);
+    expect(again?.id).toBe(first?.id);
+    expect(again?.name).toBe("New Name");
+    expect(again?.email).toBe("buyer@example.com");
   });
 
   it("holds sessions apart from staff, and ends them on sign-out", async () => {
-    const buyer = await upsertBuyer(db, profile);
-    const token = await createBuyerSession(db, buyer.id);
-    expect((await findSessionBuyer(db, token))?.id).toBe(buyer.id);
+    const buyer = await upsertBuyer(db, profile, DEFAULT_BRAND_ID);
+    const token = await createBuyerSession(db, buyer!.id);
+    expect((await findSessionBuyer(db, token))?.id).toBe(buyer!.id);
     const staffSessions = await db.query(`SELECT 1 FROM admin_sessions`);
     expect(staffSessions).toEqual([]);
     await deleteBuyerSession(db, token);

@@ -44,7 +44,7 @@ async function shrinkPhoto(file: File): Promise<Blob> {
   });
 }
 
-function PhotoField({
+export function PhotoField({
   name,
   label,
   defaultValue = "",
@@ -262,7 +262,7 @@ function ReviewBadge({ status, note }: { status: string; note: string | null }) 
 
 export function PropertyManager({ properties, uploads }: { properties: PropertyRow[]; uploads: boolean }) {
   return (
-    <section className="mb-14">
+    <section id="properties" className="mb-14 scroll-mt-6">
       <h2 className="mb-4 text-2xl text-bone-50">Properties</h2>
       <details className="mb-6 rounded-xl border border-border p-5">
         <summary className="cursor-pointer font-medium text-copper-400">Add a property</summary>

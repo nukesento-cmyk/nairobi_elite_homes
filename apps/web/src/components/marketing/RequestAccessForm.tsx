@@ -11,7 +11,7 @@ const fieldClass =
 const labelClass = "block text-sm text-bone-200";
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
-export function RequestAccessForm() {
+export function RequestAccessForm({ base = "" }: { base?: string }) {
   const [state, action, pending] = useActionState(requestAccess, {});
 
   if (state.sent) {
@@ -24,6 +24,7 @@ export function RequestAccessForm() {
 
   return (
     <form action={action} className="mt-6 space-y-4">
+      <input type="hidden" name="base" value={base} />
       <label className={labelClass}>
         Name
         <input name="name" required minLength={2} autoComplete="name" className={fieldClass} />

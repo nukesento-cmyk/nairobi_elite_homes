@@ -101,3 +101,85 @@ CREATE TABLE IF NOT EXISTS access_requests (
   handled_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Brands. Every account and piece of content below a SuperAdmin belongs to exactly one.
+-- Existing data moves to the original brand, whose id is also in src/lib/brands.ts.
+CREATE TABLE IF NOT EXISTS brands (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  -- Bare host, such as example.com. Optional: a brand can run without its own domain.
+  domain text UNIQUE CHECK (domain = lower(domain)),
+  created_by uuid REFERENCES admins (id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS brands_unique_name ON brands (lower(name));
+
+-- Not ON CONFLICT: later columns are required, and that's checked before any conflict is.
+INSERT INTO brands (id, name)
+SELECT '00000000-0000-4000-8000-000000000001', 'NairobiEliteHomes'
+WHERE NOT EXISTS (SELECT 1 FROM brands WHERE id = '00000000-0000-4000-8000-000000000001');
+
+-- Staff. Only the SuperAdmin stands outside a brand, and the database holds that true.
+ALTER TABLE admins ADD COLUMN IF NOT EXISTS brand_id uuid REFERENCES brands (id) ON DELETE RESTRICT;
+ALTER TABLE admins ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES admins (id) ON DELETE SET NULL;
+UPDATE admins SET brand_id = '00000000-0000-4000-8000-000000000001' WHERE brand_id IS NULL AND role <> 'superadmin';
+ALTER TABLE admins DROP CONSTRAINT IF EXISTS admins_brand_check;
+ALTER TABLE admins ADD CONSTRAINT admins_brand_check CHECK ((role = 'superadmin') = (brand_id IS NULL));
+
+-- Content and requests. No default, so a missing brand fails instead of landing in the wrong one.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS brand_id uuid REFERENCES brands (id) ON DELETE RESTRICT;
+UPDATE properties SET brand_id = '00000000-0000-4000-8000-000000000001' WHERE brand_id IS NULL;
+ALTER TABLE properties ALTER COLUMN brand_id SET NOT NULL;
+CREATE INDEX IF NOT EXISTS properties_brand ON properties (brand_id);
+
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS brand_id uuid REFERENCES brands (id) ON DELETE RESTRICT;
+UPDATE posts SET brand_id = '00000000-0000-4000-8000-000000000001' WHERE brand_id IS NULL;
+ALTER TABLE posts ALTER COLUMN brand_id SET NOT NULL;
+CREATE INDEX IF NOT EXISTS posts_brand ON posts (brand_id);
+
+ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS brand_id uuid REFERENCES brands (id) ON DELETE RESTRICT;
+UPDATE access_requests SET brand_id = '00000000-0000-4000-8000-000000000001' WHERE brand_id IS NULL;
+ALTER TABLE access_requests ALTER COLUMN brand_id SET NOT NULL;
+CREATE INDEX IF NOT EXISTS access_requests_brand ON access_requests (brand_id);
+
+-- Users, shown as "buyers" in older code. They arrive through Google, staff create them, or
+-- both once the emails match, so either way of signing in may be missing.
+ALTER TABLE buyers ALTER COLUMN google_sub DROP NOT NULL;
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS brand_id uuid REFERENCES brands (id) ON DELETE RESTRICT;
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS password_hash text;
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NULL DEFAULT false;
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS failed_logins integer NOT NULL DEFAULT 0;
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS locked_until timestamptz;
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES admins (id) ON DELETE SET NULL;
+UPDATE buyers SET brand_id = '00000000-0000-4000-8000-000000000001' WHERE brand_id IS NULL;
+ALTER TABLE buyers ALTER COLUMN brand_id SET NOT NULL;
+UPDATE buyers SET email = lower(email) WHERE email <> lower(email);
+-- One sign-in per email across all brands, so signing in never has to ask which brand.
+CREATE UNIQUE INDEX IF NOT EXISTS buyers_unique_email ON buyers (email);
+CREATE INDEX IF NOT EXISTS buyers_brand ON buyers (brand_id);
+
+-- A brand's private community links. Staff send these by hand; the public never sees them.
+CREATE TABLE IF NOT EXISTS whatsapp_groups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL REFERENCES brands (id) ON DELETE RESTRICT,
+  name text NOT NULL,
+  url text NOT NULL,
+  created_by uuid REFERENCES admins (id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (brand_id, url)
+);
+
+-- What a brand's own public site shows. The slug gives a brand with no domain an address,
+-- /b/slug, and stays the same if the brand is renamed so its links keep working.
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS slug text;
+UPDATE brands SET slug = 'nairobi-elite-homes' WHERE id = '00000000-0000-4000-8000-000000000001' AND slug IS NULL;
+UPDATE brands SET slug = trim(both '-' from regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g')) || '-' || left(id::text, 6) WHERE slug IS NULL;
+ALTER TABLE brands ALTER COLUMN slug SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS brands_unique_slug ON brands (slug);
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS logo_url text;
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS tagline text;
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS about text;
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS accent_color text CHECK (accent_color ~ '^#[0-9a-f]{6}$');
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS contact_email text;
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS contact_phone text;
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS whatsapp_phone text;

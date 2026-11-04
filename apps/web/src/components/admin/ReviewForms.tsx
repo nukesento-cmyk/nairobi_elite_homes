@@ -90,6 +90,8 @@ type RequestRowProps = {
     createdAt: string;
   };
   chatUrl: string;
+  /** A chat with this person, with the invite to one of the brand's groups already typed. */
+  groupLinks?: { name: string; url: string }[];
 };
 
 function StatusButton({ id, status, label }: { id: string; status: string; label: string }) {
@@ -104,7 +106,7 @@ function StatusButton({ id, status, label }: { id: string; status: string; label
   );
 }
 
-export function RequestRow({ request, chatUrl }: RequestRowProps) {
+export function RequestRow({ request, chatUrl, groupLinks = [] }: RequestRowProps) {
   const [state, remove, removing] = useActionState(deleteRequestAction, {});
   return (
     <li data-request={request.phone} className="rounded-xl border border-border p-5">
@@ -117,6 +119,9 @@ export function RequestRow({ request, chatUrl }: RequestRowProps) {
       <p className="mt-2 text-sm text-copper-400">{STATUS_LABEL[request.status]}</p>
       <div className="mt-3 flex flex-wrap items-start gap-3">
         <a href={chatUrl} target="_blank" rel="noopener noreferrer" className={button}>Open WhatsApp</a>
+        {groupLinks.map(({ name, url }) => (
+          <a key={name} href={url} target="_blank" rel="noopener noreferrer" className={button}>Send {name} link</a>
+        ))}
         {request.status !== "link_sent" && <StatusButton id={request.id} status="link_sent" label="Mark link sent" />}
         {request.status !== "declined" && <StatusButton id={request.id} status="declined" label="Decline" />}
         <form action={remove}>

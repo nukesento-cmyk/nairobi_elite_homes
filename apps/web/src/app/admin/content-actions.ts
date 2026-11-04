@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 
-import { AdminError } from "@/lib/admin/accounts";
+import { AdminError, canReview } from "@/lib/admin/accounts";
 import { requireAdmin } from "@/lib/admin/guard";
 import { db } from "@/lib/admin/session";
 import { deleteAccessRequest, setAccessRequestStatus } from "@/lib/access-requests";
@@ -76,10 +76,10 @@ export async function savePropertyAction(_: ActionState, form: FormData): Promis
     const id = value(form, "id");
     if (id) {
       await updateProperty(db, actor, id, propertyInput(form));
-      return "Saved and sent for approval.";
+      return canReview(actor) ? "Saved. It's live." : "Saved and sent for approval.";
     }
     await createProperty(db, actor, propertyInput(form));
-    return "Sent for approval.";
+    return canReview(actor) ? "Added. It's live." : "Sent for approval.";
   });
 }
 

@@ -1,14 +1,14 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 
-import { canManageContent } from "@/lib/admin/accounts";
+import { canManageProperties, canReview } from "@/lib/admin/accounts";
 import { getCurrentAdmin } from "@/lib/admin/session";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
 // Lives under /admin because that's the only path the staff session cookie is sent to.
 // Issues a short-lived token so the browser can send the photo straight to the file store,
-// because photos can be larger than a server function accepts. Only signed-in reviewers get one.
+// because photos can be larger than a server function accepts. Only signed-in staff who add photos or logos get one.
 export async function POST(request: Request) {
   const body = (await request.json()) as HandleUploadBody;
   try {
@@ -17,8 +17,8 @@ export async function POST(request: Request) {
       request,
       onBeforeGenerateToken: async () => {
         const admin = await getCurrentAdmin();
-        if (!admin || admin.mustChangePassword || !canManageContent(admin)) {
-          throw new Error("Only reviewers can upload photos.");
+        if (!admin || admin.mustChangePassword || !(canManageProperties(admin) || canReview(admin))) {
+          throw new Error("You can't upload photos.");
         }
         return {
           allowedContentTypes: ["image/webp", "image/jpeg", "image/png"],

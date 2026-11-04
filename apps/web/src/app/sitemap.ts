@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 import { site } from "@/config/site";
 import { getBlogPosts, getCommunities, getPublicListings } from "@/lib/cms";
 
-const STATIC_ROUTES = ["/", "/homes", "/land", "/join", "/areas", "/contact", "/blog"];
+const STATIC_ROUTES = ["/", "/homes", "/land", "/join", "/areas", "/contact", "/blog", "/privacy"];
 
 // Lists public pages only. Gated listings have no pages, and sample listings are
 // excluded because they're marked noindex.

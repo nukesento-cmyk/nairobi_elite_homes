@@ -110,6 +110,11 @@ export async function SiteFooter() {
           </div>
         )}
       </div>
+      <div className="mx-auto mt-10 max-w-7xl px-4 text-sm sm:px-6">
+        <Link href="/privacy" className={linkClass}>
+          Privacy policy
+        </Link>
+      </div>
     </footer>
   );
 }

@@ -9,6 +9,9 @@ import postgres from "postgres";
 
 import { blogPosts } from "../db/seed/blog-posts.mjs";
 
+// The original brand, as in db/schema.sql and src/lib/brands.ts.
+const DEFAULT_BRAND_ID = "00000000-0000-4000-8000-000000000001";
+
 if (!process.env.DATABASE_URL) {
   console.error("Set DATABASE_URL first.");
   process.exit(1);
@@ -20,8 +23,8 @@ try {
   await sql.unsafe(readFileSync(new URL("../db/schema.sql", import.meta.url), "utf8"));
   for (const post of blogPosts) {
     const rows = await sql`
-      INSERT INTO posts (slug, title, excerpt, body, cover_url, cover_alt, review_status, published_at)
-      VALUES (${post.slug}, ${post.title}, ${post.excerpt}, ${post.body}, ${post.coverUrl}, ${post.coverAlt}, 'approved', now())
+      INSERT INTO posts (slug, title, excerpt, body, cover_url, cover_alt, review_status, published_at, brand_id)
+      VALUES (${post.slug}, ${post.title}, ${post.excerpt}, ${post.body}, ${post.coverUrl}, ${post.coverAlt}, 'approved', now(), ${DEFAULT_BRAND_ID})
       ON CONFLICT (slug) DO NOTHING RETURNING slug`;
     console.log(`${rows.length > 0 ? "Published" : "Exists, left unchanged"}: /blog/${post.slug}`);
   }

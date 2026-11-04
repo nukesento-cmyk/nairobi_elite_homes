@@ -83,6 +83,7 @@ export async function createAdminAction(_: ActionState, form: FormData): Promise
       email: form.get("email"),
       name: form.get("name"),
       role: form.get("role"),
+      brandId: form.get("brandId"),
     });
     return { message: `${admin.name} can now sign in as ${admin.email}.`, temporaryPassword };
   });

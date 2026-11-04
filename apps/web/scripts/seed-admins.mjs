@@ -10,6 +10,9 @@ import postgres from "postgres";
 
 import { generatePassword, hashPassword } from "../src/lib/admin/password.ts";
 
+// The original brand, as in db/schema.sql and src/lib/brands.ts.
+const DEFAULT_BRAND_ID = "00000000-0000-4000-8000-000000000001";
+
 const accounts = [
   { role: "superadmin", email: process.env.SEED_SUPERADMIN_EMAIL, name: process.env.SEED_SUPERADMIN_NAME ?? "SuperAdmin" },
   { role: "admin", email: process.env.SEED_ADMIN_1_EMAIL, name: process.env.SEED_ADMIN_1_NAME ?? "Admin One" },
@@ -50,8 +53,9 @@ try {
       }
     }
     const password = generatePassword();
-    await sql`INSERT INTO admins (email, name, role, password_hash, must_change_password)
-      VALUES (${email}, ${name}, ${role}, ${await hashPassword(password)}, true)`;
+    await sql`INSERT INTO admins (email, name, role, password_hash, must_change_password, brand_id)
+      VALUES (${email}, ${name}, ${role}, ${await hashPassword(password)}, true,
+        ${role === "superadmin" ? null : DEFAULT_BRAND_ID})`;
     created.push({ role, email, password });
   }
 } catch (error) {

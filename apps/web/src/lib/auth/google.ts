@@ -1,5 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 
+import { relayState } from "@/lib/brand-site";
+
 // Google's fixed sign-in addresses, not links marketing would ever change.
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -7,16 +9,28 @@ const ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
 
 export type GoogleProfile = { sub: string; email: string; name: string };
 
-export type OAuthAttempt = { state: string; nonce: string; verifier: string; audience: "buyer" | "staff" };
+export type OAuthAttempt = {
+  state: string;
+  nonce: string;
+  verifier: string;
+  audience: "buyer" | "staff";
+  /** The brand site this started from when it has no domain: /b/slug. Empty otherwise. */
+  base?: string;
+};
 
 export function isGoogleConfigured(): boolean {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
-export function startAttempt(audience: OAuthAttempt["audience"]): OAuthAttempt {
+export function startAttempt(
+  audience: OAuthAttempt["audience"],
+  options: { base?: string; relayFrom?: string } = {},
+): OAuthAttempt {
+  const random = randomBytes(24).toString("base64url");
   return {
     audience,
-    state: randomBytes(24).toString("base64url"),
+    base: options.base,
+    state: options.relayFrom ? relayState(random, options.relayFrom) : random,
     nonce: randomBytes(24).toString("base64url"),
     verifier: randomBytes(48).toString("base64url"),
   };

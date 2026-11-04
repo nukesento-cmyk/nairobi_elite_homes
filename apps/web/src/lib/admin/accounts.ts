@@ -16,6 +16,9 @@ export type Admin = {
   email: string;
   name: string;
   role: AdminRole;
+  /** Null only for the SuperAdmin, who stands above every brand. */
+  brandId: string | null;
+  createdBy: string | null;
   mustChangePassword: boolean;
   createdAt: string;
 };
@@ -27,23 +30,23 @@ const LOCK_MINUTES = 15;
 const SESSION_HOURS = 12;
 export const SESSION_MAX_AGE = SESSION_HOURS * 60 * 60;
 
-const emailSchema = z.email("Enter a valid email address.").trim().toLowerCase().max(200);
-const nameSchema = z.string().trim().min(2, "Enter a name.").max(100);
-const passwordSchema = z.string().min(12, "Use at least 12 characters.").max(200);
+export const emailSchema = z.email("Enter a valid email address.").trim().toLowerCase().max(200);
+export const nameSchema = z.string().trim().min(2, "Enter a name.").max(100);
+export const passwordSchema = z.string().min(12, "Use at least 12 characters.").max(200);
 
-const COLUMNS = `id, email, name, role,
+const COLUMNS = `id, email, name, role, brand_id AS "brandId", created_by AS "createdBy",
   must_change_password AS "mustChangePassword", created_at AS "createdAt"`;
 
 // Stands in for a real hash, so an unknown email takes as long to reject as a wrong password.
 const UNKNOWN_ACCOUNT_HASH = hashPassword(generatePassword());
 
-function parse<T>(schema: z.ZodType<T>, value: unknown): T {
+export function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
   if (!result.success) throw new AdminError(result.error.issues[0].message);
   return result.data;
 }
 
-function isDuplicate(error: unknown): boolean {
+export function isDuplicate(error: unknown): boolean {
   return (error as { code?: string }).code === "23505";
 }
 
@@ -53,15 +56,34 @@ export function hashToken(token: string): string {
 
 // --- Permissions. Who can manage whom lives here and nowhere else.
 
-/** The roles this person can create, edit, delete and reset. */
+/**
+ * The brand a person's work is limited to, or null for the SuperAdmin, who sees every brand.
+ * Decided by role, so a missing brand on anyone else can never read as "all brands".
+ */
+export function brandScope(actor: Pick<Admin, "role" | "brandId">): string | null {
+  if (actor.role === "superadmin") return null;
+  if (!actor.brandId) throw new AdminError("Your account isn't linked to a brand.");
+  return actor.brandId;
+}
+
+/** The roles this person can create. */
 export function manageableRoles(actor: Pick<Admin, "role">): AdminRole[] {
-  if (actor.role === "superadmin") return ["admin", "reviewer"];
-  if (actor.role === "admin") return ["reviewer"];
+  if (actor.role === "superadmin" || actor.role === "admin") return ["admin", "reviewer"];
   return [];
 }
 
-export function canManage(actor: Pick<Admin, "role">, target: Pick<Admin, "role">): boolean {
-  return manageableRoles(actor).includes(target.role);
+/**
+ * Who can edit, delete and reset whom. Within a brand, admins look after every reviewer but
+ * only the admins they added themselves, so a newer admin can't remove whoever added them.
+ */
+export function canManage(
+  actor: Pick<Admin, "id" | "role" | "brandId">,
+  target: Pick<Admin, "role" | "brandId" | "createdBy">,
+): boolean {
+  if (target.role === "superadmin") return false;
+  if (actor.role === "superadmin") return true;
+  if (actor.role !== "admin" || actor.brandId !== target.brandId) return false;
+  return target.role === "reviewer" || target.createdBy === actor.id;
 }
 
 /** Everyone can correct their own name and email. */
@@ -69,8 +91,13 @@ export function canEdit(actor: Admin, target: Admin): boolean {
   return actor.id === target.id || canManage(actor, target);
 }
 
-/** Only reviewers add properties and blogs. */
-export function canManageContent(actor: Pick<Admin, "role">): boolean {
+/** Reviewers send properties for approval. Admins can approve, so theirs go straight up. */
+export function canManageProperties(actor: Pick<Admin, "role">): boolean {
+  return actor.role === "reviewer" || actor.role === "admin";
+}
+
+/** Only reviewers write blogs. */
+export function canWritePosts(actor: Pick<Admin, "role">): boolean {
   return actor.role === "reviewer";
 }
 
@@ -84,15 +111,27 @@ export function canRemoveContent(actor: Pick<Admin, "role">): boolean {
   return actor.role === "reviewer" || actor.role === "superadmin";
 }
 
+/** Everyone on the staff side can add a user. Each stays inside their own brand. */
+export function canManageUsers(actor: Pick<Admin, "role">): boolean {
+  return actor.role === "superadmin" || actor.role === "admin" || actor.role === "reviewer";
+}
+
+export function canManageGroups(actor: Pick<Admin, "role">): boolean {
+  return actor.role === "superadmin" || actor.role === "admin";
+}
+
 // --- Accounts
 
-/** Only the accounts this person may manage, plus their own. */
+/** The SuperAdmin sees everyone, admins see their brand, and reviewers just themselves. */
 export async function listAdmins(db: Db, actor: Admin): Promise<Admin[]> {
-  return db.query<Admin>(
-    `SELECT ${COLUMNS} FROM admins WHERE id = $1 OR role = ANY($2::text[])
-     ORDER BY id = $1 DESC, role = 'admin' DESC, created_at ASC`,
-    [actor.id, manageableRoles(actor)],
-  );
+  const order = `ORDER BY id = $1 DESC, role = 'admin' DESC, created_at ASC`;
+  if (actor.role === "superadmin") {
+    return db.query<Admin>(`SELECT ${COLUMNS} FROM admins ${order}`, [actor.id]);
+  }
+  if (actor.role === "admin") {
+    return db.query<Admin>(`SELECT ${COLUMNS} FROM admins WHERE brand_id = $2 ${order}`, [actor.id, brandScope(actor)]);
+  }
+  return db.query<Admin>(`SELECT ${COLUMNS} FROM admins WHERE id = $1 ${order}`, [actor.id]);
 }
 
 async function getAdmin(db: Db, id: string): Promise<Admin> {
@@ -106,7 +145,7 @@ async function getAdmin(db: Db, id: string): Promise<Admin> {
 export async function createAdmin(
   db: Db,
   actor: Admin,
-  input: { email: unknown; name: unknown; role: unknown },
+  input: { email: unknown; name: unknown; role: unknown; brandId?: unknown },
 ) {
   const role = input.role as AdminRole;
   if (!manageableRoles(actor).includes(role)) {
@@ -114,13 +153,17 @@ export async function createAdmin(
   }
   const email = parse(emailSchema, input.email);
   const name = parse(nameSchema, input.name);
+  // Admins always add to their own brand, whatever the request says.
+  const brandId = actor.role === "superadmin" ? input.brandId : brandScope(actor);
+  if (!z.uuid().safeParse(brandId).success) throw new AdminError("Choose a brand.");
   const temporaryPassword = generatePassword();
   try {
     const [admin] = await db.query<Admin>(
-      `INSERT INTO admins (email, name, role, password_hash, must_change_password)
-       VALUES ($1, $2, $3, $4, true) RETURNING ${COLUMNS}`,
-      [email, name, role, await hashPassword(temporaryPassword)],
+      `INSERT INTO admins (email, name, role, password_hash, must_change_password, brand_id, created_by)
+       SELECT $1, $2, $3, $4, true, brands.id, $6::uuid FROM brands WHERE brands.id = $5 RETURNING ${COLUMNS}`,
+      [email, name, role, await hashPassword(temporaryPassword), brandId, actor.id],
     );
+    if (!admin) throw new AdminError("Choose a brand.");
     return { admin, temporaryPassword };
   } catch (error) {
     if (isDuplicate(error)) throw new AdminError("An account with that email already exists.");
@@ -202,29 +245,31 @@ export async function changeOwnPassword(
 /**
  * The same error for every failure, so this can't be used to discover which emails have
  * accounts. Failures are counted in the database, which holds across server instances.
+ * Returns the id of the matching row. The table is only ever one of these fixed names.
  */
-export async function authenticate(
+export async function verifyCredentials(
   db: Db,
+  table: "admins" | "buyers",
   input: { email: unknown; password: unknown },
-): Promise<Admin> {
+): Promise<string> {
   const failure = new AdminError("That email and password don't match.");
   const email = emailSchema.safeParse(input.email);
   const password = typeof input.password === "string" ? input.password : "";
 
   const [row] = email.success
-    ? await db.query<{ id: string; hash: string; locked: boolean }>(
+    ? await db.query<{ id: string; hash: string | null; locked: boolean }>(
         `SELECT id, password_hash AS hash, COALESCE(locked_until > now(), false) AS locked
-         FROM admins WHERE email = $1`,
+         FROM ${table} WHERE email = $1`,
         [email.data],
       )
     : [];
 
   const matches = await verifyPassword(password, row?.hash ?? (await UNKNOWN_ACCOUNT_HASH));
-  if (!row || row.locked) throw failure;
+  if (!row || row.locked || !row.hash) throw failure;
 
   if (!matches) {
     await db.query(
-      `UPDATE admins SET
+      `UPDATE ${table} SET
          failed_logins = CASE WHEN failed_logins + 1 >= $2 THEN 0 ELSE failed_logins + 1 END,
          locked_until = CASE WHEN failed_logins + 1 >= $2
            THEN now() + make_interval(mins => $3) ELSE locked_until END
@@ -234,8 +279,15 @@ export async function authenticate(
     throw failure;
   }
 
-  await db.query(`UPDATE admins SET failed_logins = 0, locked_until = NULL WHERE id = $1`, [row.id]);
-  return getAdmin(db, row.id);
+  await db.query(`UPDATE ${table} SET failed_logins = 0, locked_until = NULL WHERE id = $1`, [row.id]);
+  return row.id;
+}
+
+export async function authenticate(
+  db: Db,
+  input: { email: unknown; password: unknown },
+): Promise<Admin> {
+  return getAdmin(db, await verifyCredentials(db, "admins", input));
 }
 
 /**
@@ -274,7 +326,7 @@ export async function createSession(db: Db, adminId: string): Promise<string> {
 /** Reads the role fresh on every request, so changes and deletions apply immediately. */
 export async function findSessionAdmin(db: Db, token: string): Promise<Admin | null> {
   const [admin] = await db.query<Admin>(
-    `SELECT a.id, a.email, a.name, a.role,
+    `SELECT a.id, a.email, a.name, a.role, a.brand_id AS "brandId", a.created_by AS "createdBy",
        a.must_change_password AS "mustChangePassword", a.created_at AS "createdAt"
      FROM admin_sessions s JOIN admins a ON a.id = s.admin_id
      WHERE s.token_hash = $1 AND s.expires_at > now()`,

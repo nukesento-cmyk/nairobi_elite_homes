@@ -21,6 +21,8 @@ import {
   type Admin,
   type Db,
 } from "./accounts";
+import { DEFAULT_BRAND_ID as BRAND } from "@/lib/brands";
+
 import { hashPassword, verifyPassword } from "./password";
 
 const SCHEMA = readFileSync("db/schema.sql", "utf8");
@@ -47,10 +49,10 @@ beforeEach(async () => {
     [await hashPassword(SUPER_PASSWORD)],
   );
   [superadmin] = await db.query<Admin>(
-    `SELECT id, email, name, role, must_change_password AS "mustChangePassword", created_at AS "createdAt" FROM admins`,
+    `SELECT id, email, name, role, brand_id AS "brandId", created_by AS "createdBy", must_change_password AS "mustChangePassword", created_at AS "createdAt" FROM admins`,
   );
-  adminOne = (await createAdmin(db, superadmin, { email: "One@Example.com", name: "One", role: "admin" })).admin;
-  adminTwo = (await createAdmin(db, superadmin, { email: "two@example.com", name: "Two", role: "admin" })).admin;
+  adminOne = (await createAdmin(db, superadmin, { email: "One@Example.com", name: "One", role: "admin", brandId: BRAND })).admin;
+  adminTwo = (await createAdmin(db, superadmin, { email: "two@example.com", name: "Two", role: "admin", brandId: BRAND })).admin;
   reviewer = (await createAdmin(db, adminOne, { email: "rev@example.com", name: "Rev", role: "reviewer" })).admin;
 });
 
@@ -58,7 +60,7 @@ const emails = async () => (await listAdmins(db, superadmin)).map((admin) => adm
 
 describe("who can manage whom", () => {
   it("lets the SuperAdmin create, edit, reset and delete admins", async () => {
-    const { admin } = await createAdmin(db, superadmin, { email: "new@example.com", name: "New", role: "admin" });
+    const { admin } = await createAdmin(db, superadmin, { email: "new@example.com", name: "New", role: "admin", brandId: BRAND });
     await updateAdmin(db, superadmin, admin.id, { email: "new@example.com", name: "Renamed" });
     await resetPassword(db, superadmin, admin.id);
     await deleteAdmin(db, superadmin, admin.id);
@@ -73,15 +75,21 @@ describe("who can manage whom", () => {
     expect(await emails()).not.toContain("r2@example.com");
   });
 
+  it("lets an admin add admins to their brand, and manage only the ones they added", async () => {
+    const { admin } = await createAdmin(db, adminOne, { email: "new@example.com", name: "New", role: "admin" });
+    expect(admin.brandId).toBe(BRAND);
+    await resetPassword(db, adminOne, admin.id);
+    await expect(resetPassword(db, admin, adminOne.id)).rejects.toThrow(AdminError);
+    await deleteAdmin(db, adminOne, admin.id);
+  });
+
   it("stops an admin touching other admins or the SuperAdmin", async () => {
-    await expect(createAdmin(db, adminOne, { email: "x@example.com", name: "Xx", role: "admin" })).rejects.toThrow(AdminError);
     for (const target of [adminTwo, superadmin]) {
       await expect(updateAdmin(db, adminOne, target.id, { email: "x@example.com", name: "Xx" })).rejects.toThrow(AdminError);
       await expect(resetPassword(db, adminOne, target.id)).rejects.toThrow(AdminError);
       await expect(deleteAdmin(db, adminOne, target.id)).rejects.toThrow(AdminError);
     }
-    expect((await listAdmins(db, adminOne)).map(({ role }) => role).sort()).toEqual(["admin", "reviewer"]);
-    expect((await listAdmins(db, adminOne)).map(({ id }) => id)).not.toContain(adminTwo.id);
+    expect((await listAdmins(db, adminOne)).map(({ id }) => id)).not.toContain(superadmin.id);
   });
 
   it("stops a reviewer managing any account", async () => {
@@ -93,7 +101,7 @@ describe("who can manage whom", () => {
   });
 
   it("never allows a second SuperAdmin, by role or by database", async () => {
-    await expect(createAdmin(db, superadmin, { email: "x@example.com", name: "Xx", role: "superadmin" })).rejects.toThrow(AdminError);
+    await expect(createAdmin(db, superadmin, { email: "x@example.com", name: "Xx", role: "superadmin", brandId: BRAND })).rejects.toThrow(AdminError);
     await expect(
       db.query(`INSERT INTO admins (email, name, role, password_hash) VALUES ('s2@example.com', 'S', 'superadmin', 'x')`),
     ).rejects.toThrow();
@@ -112,13 +120,13 @@ describe("who can manage whom", () => {
   });
 
   it("refuses a duplicate email and bad input", async () => {
-    await expect(createAdmin(db, superadmin, { email: "ONE@example.com", name: "Dup", role: "admin" })).rejects.toThrow(/already exists/);
-    await expect(createAdmin(db, superadmin, { email: "nope", name: "Bad", role: "admin" })).rejects.toThrow(AdminError);
+    await expect(createAdmin(db, superadmin, { email: "ONE@example.com", name: "Dup", role: "admin", brandId: BRAND })).rejects.toThrow(/already exists/);
+    await expect(createAdmin(db, superadmin, { email: "nope", name: "Bad", role: "admin", brandId: BRAND })).rejects.toThrow(AdminError);
     await expect(deleteAdmin(db, superadmin, "not-a-uuid")).rejects.toThrow(AdminError);
   });
 
   it("stores only a hash of temporary passwords", async () => {
-    const { temporaryPassword } = await createAdmin(db, superadmin, { email: "new@example.com", name: "New", role: "admin" });
+    const { temporaryPassword } = await createAdmin(db, superadmin, { email: "new@example.com", name: "New", role: "admin", brandId: BRAND });
     expect((await authenticate(db, { email: "new@example.com", password: temporaryPassword })).mustChangePassword).toBe(true);
     const [row] = await db.query<{ password_hash: string }>(`SELECT password_hash FROM admins WHERE email = 'new@example.com'`);
     expect(row.password_hash).not.toContain(temporaryPassword);
