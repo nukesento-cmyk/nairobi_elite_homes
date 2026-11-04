@@ -18,7 +18,7 @@ import type { Brand } from "@/lib/brands";
 
 import { PhotoField } from "./ContentForms";
 
-import { BrandField, Result, fieldClass, labelClass, secondaryButton, type BrandOption } from "./AdminForms";
+import { BrandField, Result, dangerButton, fieldClass, labelClass, primaryButton, secondaryButton, type BrandOption } from "./AdminForms";
 
 export function CreateBrandForm() {
   const [state, action, pending] = useActionState(createBrandAction, {});
@@ -42,7 +42,7 @@ export function CreateBrandForm() {
           <input name="adminEmail" type="email" required autoComplete="off" className={fieldClass} />
         </label>
       </div>
-      <button type="submit" disabled={pending} className={`${secondaryButton} mt-4`}>
+      <button type="submit" disabled={pending} className={`${primaryButton} mt-4`}>
         Add brand and admin
       </button>
       <Result state={state} />
@@ -65,7 +65,7 @@ export function EditBrandForm({ id, name, domain }: { id: string; name: string; 
           <input name="domain" placeholder="example.com" defaultValue={domain ?? ""} className={fieldClass} />
         </label>
       </div>
-      <button type="submit" disabled={pending} className={`${secondaryButton} mt-4`}>
+      <button type="submit" disabled={pending} className={`${primaryButton} mt-4`}>
         Save changes
       </button>
       <Result state={state} />
@@ -88,7 +88,7 @@ export function CreateUserForm({ brands }: { brands?: BrandOption[] }) {
           <input name="email" type="email" required autoComplete="off" className={fieldClass} />
         </label>
       </div>
-      <button type="submit" disabled={pending} className={`${secondaryButton} mt-4`}>
+      <button type="submit" disabled={pending} className={`${primaryButton} mt-4`}>
         Add user
       </button>
       <Result state={state} />
@@ -123,7 +123,7 @@ function ConfirmDelete({
   const [confirming, setConfirming] = useState(false);
   if (!confirming) {
     return (
-      <button type="button" onClick={() => setConfirming(true)} className={secondaryButton}>
+      <button type="button" onClick={() => setConfirming(true)} className={dangerButton}>
         Delete
       </button>
     );
@@ -166,7 +166,7 @@ export function CreateGroupForm({ brands }: { brands?: BrandOption[] }) {
           <input name="url" type="url" required placeholder="The group's invite link" autoComplete="off" className={fieldClass} />
         </label>
       </div>
-      <button type="submit" disabled={pending} className={`${secondaryButton} mt-4`}>
+      <button type="submit" disabled={pending} className={`${primaryButton} mt-4`}>
         Add group
       </button>
       <Result state={state} />
@@ -220,7 +220,7 @@ export function BrandSettingsForm({ brand, uploads }: { brand: Brand; uploads: b
           <input name="whatsappPhone" type="tel" defaultValue={brand.whatsappPhone ?? ""} className={fieldClass} />
         </label>
       </div>
-      <button type="submit" disabled={pending} className={secondaryButton}>
+      <button type="submit" disabled={pending} className={primaryButton}>
         Save site details
       </button>
       <Result state={state} />

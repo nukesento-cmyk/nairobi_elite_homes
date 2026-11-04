@@ -7,4 +7,5 @@ export const colors = {
   bone: { 50: "#E8E2D4", 100: "#F2EAE0", 200: "#C4B8A0" },
   copper: { DEFAULT: "#B87333", 600: "#A5652B", 400: "#D08B4A" },
   terracotta: { DEFAULT: "#C56B4A" },
+  moss: { DEFAULT: "#8FB996" },
 } as const;

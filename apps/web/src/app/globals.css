@@ -26,6 +26,7 @@
   --color-copper-600: #a5652b;
   --color-copper-400: #d08b4a;
   --color-terracotta: #c56b4a;
+  --color-moss: #8fb996;
 
   --text-display: clamp(2.5rem, 1.5rem + 5vw, 5.5rem);
   --text-display--line-height: 1.05;
@@ -249,5 +250,54 @@ html:has(#mobile-menu) [data-floating-whatsapp] {
   [data-reveal="hidden"] {
     opacity: 1;
     translate: none;
+  }
+}
+
+/* The staff dashboard. Plain details elements read as tidy, labelled disclosures everywhere. */
+[data-admin] summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+  list-style: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-copper-400);
+}
+[data-admin] summary::-webkit-details-marker {
+  display: none;
+}
+[data-admin] summary::before {
+  content: "";
+  flex: none;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 150ms;
+}
+[data-admin] details[open] > summary::before {
+  transform: rotate(45deg);
+}
+[data-admin] summary:hover {
+  color: var(--color-bone-50);
+}
+[data-admin] summary:focus-visible {
+  outline: 2px solid var(--color-copper-400);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+[data-admin] textarea {
+  height: auto;
+  padding-block: 0.625rem;
+}
+[data-admin] [hidden] {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-admin] summary::before {
+    transition: none;
   }
 }

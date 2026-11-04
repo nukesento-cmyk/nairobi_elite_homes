@@ -16,28 +16,29 @@ import {
 import { OWNER_DOCUMENT_TYPES } from "@/lib/acquisition/onboarding-types";
 import { LEAD_AREAS } from "@/lib/lead-options";
 
-import { Result, fieldClass, labelClass, secondaryButton } from "./AdminForms";
+import { Result, dangerButton, fieldClass, labelClass, primaryButton, secondaryButton } from "./AdminForms";
 import { PhotoField } from "./ContentForms";
+import { useSafeForm } from "./use-safe-form";
 
 type Action = (state: ActionState, form: FormData) => Promise<ActionState>;
 
 /** A single button with hidden values, and its own result underneath. */
-function ActionButton({ action, id, label, extra }: { action: Action; id: string; label: string; extra?: Record<string, string> }) {
+function ActionButton({ action, id, label, extra, look = secondaryButton }: { action: Action; id: string; label: string; extra?: Record<string, string>; look?: string }) {
   const [state, run, pending] = useActionState(action, {});
   return (
     <form action={run}>
       <input type="hidden" name="id" value={id} />
       {Object.entries(extra ?? {}).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)}
-      <button type="submit" disabled={pending} className={secondaryButton}>{label}</button>
+      <button type="submit" disabled={pending} className={look}>{label}</button>
       <Result state={state} />
     </form>
   );
 }
 
-export const StartOnboardingButton = ({ id }: { id: string }) => <ActionButton action={startOnboardingAction} id={id} label="Start onboarding" />;
+export const StartOnboardingButton = ({ id }: { id: string }) => <ActionButton action={startOnboardingAction} id={id} label="Start onboarding" look={primaryButton} />;
 export const VerifyDocumentButton = ({ id }: { id: string }) => <ActionButton action={verifyDocumentAction} id={id} label="I've checked this" />;
-export const RemoveDocumentButton = ({ id }: { id: string }) => <ActionButton action={removeDocumentAction} id={id} label="Delete" />;
-export const ConfirmStepButton = ({ id, step, label }: { id: string; step: string; label: string }) => <ActionButton action={confirmStepAction} id={id} label={label} extra={{ step }} />;
+export const RemoveDocumentButton = ({ id }: { id: string }) => <ActionButton action={removeDocumentAction} id={id} label="Delete" look={dangerButton} />;
+export const ConfirmStepButton = ({ id, step, label }: { id: string; step: string; label: string }) => <ActionButton action={confirmStepAction} id={id} label={label} extra={{ step }} look={primaryButton} />;
 
 export function IssueLinkForm({ id, active }: { id: string; active: boolean }) {
   const [state, run, pending] = useActionState(issueLinkAction, {});
@@ -52,9 +53,9 @@ export function IssueLinkForm({ id, active }: { id: string; active: boolean }) {
 }
 
 export function StaffUploadForm({ id }: { id: string }) {
-  const [state, run, pending] = useActionState(uploadDocumentAction, {});
+  const { state, pending, form } = useSafeForm(uploadDocumentAction);
   return (
-    <form action={run}>
+    <form {...form}>
       <input type="hidden" name="id" value={id} />
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={labelClass}>
@@ -76,9 +77,9 @@ export function StaffUploadForm({ id }: { id: string }) {
 }
 
 export function TermsForm({ id }: { id: string }) {
-  const [state, run, pending] = useActionState(confirmStepAction, {});
+  const { state, pending, form } = useSafeForm(confirmStepAction);
   return (
-    <form action={run}>
+    <form {...form}>
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="step" value="terms" />
       <div className="grid gap-4 sm:grid-cols-3">
@@ -105,22 +106,22 @@ export function TermsForm({ id }: { id: string }) {
         Marketing terms agreed with the owner
         <textarea name="terms" rows={3} required maxLength={2000} className={fieldClass} />
       </label>
-      <button type="submit" disabled={pending} className={`${secondaryButton} mt-4`}>Confirm price and terms</button>
+      <button type="submit" disabled={pending} className={`${primaryButton} mt-4`}>Confirm price and terms</button>
       <Result state={state} />
     </form>
   );
 }
 
 export function FailOnboardingForm({ id }: { id: string }) {
-  const [state, run, pending] = useActionState(failOnboardingAction, {});
+  const { state, pending, form } = useSafeForm(failOnboardingAction);
   return (
-    <form action={run}>
+    <form {...form}>
       <input type="hidden" name="id" value={id} />
       <label className={labelClass}>
         Why is this being stopped?
         <input name="reason" required maxLength={500} className={fieldClass} />
       </label>
-      <button type="submit" disabled={pending} className={`${secondaryButton} mt-4`}>Stop onboarding</button>
+      <button type="submit" disabled={pending} className={`${dangerButton} mt-4`}>Stop onboarding</button>
       <Result state={state} />
     </form>
   );
@@ -131,9 +132,9 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function SubmitPropertyForm({ id, uploads }: { id: string; uploads: boolean }) {
-  const [state, run, pending] = useActionState(submitForApprovalAction, {});
+  const { state, pending, form } = useSafeForm(submitForApprovalAction);
   return (
-    <form action={run}>
+    <form {...form}>
       <input type="hidden" name="id" value={id} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Title"><input name="title" required minLength={3} maxLength={120} className={fieldClass} /></Field>
@@ -180,7 +181,7 @@ export function SubmitPropertyForm({ id, uploads }: { id: string; uploads: boole
           <input name="photoRights" required maxLength={500} className={fieldClass} />
         </Field>
       </div>
-      <button type="submit" disabled={pending} className={`${secondaryButton} mt-4`}>Send for final approval</button>
+      <button type="submit" disabled={pending} className={`${primaryButton} mt-4`}>Send for final approval</button>
       <Result state={state} />
     </form>
   );

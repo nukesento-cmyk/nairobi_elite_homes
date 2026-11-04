@@ -43,7 +43,7 @@ async function AccountContent() {
     <>
         <h1 className="text-4xl text-bone-50">Welcome, {buyer.name}</h1>
         <p className="mt-2 text-bone-200">Signed in as {buyer.email}</p>
-        <div className="mt-8 rounded-xl border border-border p-6">
+        <div className="mt-8 rounded-xl border border-border bg-forest-900/30 p-6">
           <h2 className="text-2xl text-bone-50">Your free account</h2>
           <p className="mt-2 text-bone-200">
             Browse every public home and land listing. The private community is closed and isn&apos;t
@@ -59,7 +59,7 @@ async function AccountContent() {
           </div>
         </div>
         {buyer.hasPassword && (
-          <details className="mt-6 rounded-xl border border-border p-6">
+          <details className="mt-6 rounded-xl border border-border bg-forest-900/30 p-6">
             <summary className="cursor-pointer text-copper-400">Change your password</summary>
             <div className="mt-5"><UserChangePasswordForm /></div>
           </details>

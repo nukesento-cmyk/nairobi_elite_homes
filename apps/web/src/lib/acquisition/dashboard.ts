@@ -128,7 +128,7 @@ export async function listLeads(db: Db, actor: Admin, brandId: string): Promise<
     `SELECT p.id, p.display_name AS name, p.category, p.campaign, p.status, p.score, p.score_breakdown AS "scoreBreakdown",
        p.owner_rep_class AS role, p.authority_status AS authority, p.opening_script AS script,
        (SELECT concat_ws(', ', o.property_type, o.area) FROM acq_opportunities o WHERE o.prospect_id = p.id ORDER BY o.first_seen_at DESC LIMIT 1) AS property,
-       COALESCE((SELECT jsonb_agg(jsonb_build_object('claimType', e.claim_type, 'quote', e.quote, 'url', s.url))
+       COALESCE((SELECT jsonb_agg(jsonb_build_object('claimType', e.claim_type, 'quote', e.quote, 'url', s.url) ORDER BY e.created_at, e.id)
                  FROM acq_evidence e JOIN acq_source_records s ON s.id = e.source_record_id WHERE e.prospect_id = p.id), '[]') AS evidence,
        COALESCE((SELECT jsonb_agg(jsonb_build_object('kind', c.kind, 'value', c.normalised_value, 'contactClass', c.contact_class, 'callable', r.callable AND c.usable))
                  FROM acq_contacts c JOIN acq_contact_class_rules r ON r.brand_id = c.brand_id AND r.contact_class = c.contact_class

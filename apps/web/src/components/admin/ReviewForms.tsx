@@ -11,6 +11,9 @@ import {
 } from "@/app/admin/content-actions";
 import { buttonVariants } from "@/components/ui/button";
 
+import { dangerButton } from "./AdminForms";
+import { Badge } from "./ui";
+
 const button = buttonVariants({ variant: "outline", size: "default", className: "h-10 bg-transparent px-4" });
 const fieldClass =
   "mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-bone-50 focus-visible:outline-2 focus-visible:outline-copper-400";
@@ -42,7 +45,7 @@ export function ReviewItem({
   const [approveState, approve, approving] = useActionState(approveAction, {});
   const [rejectState, reject, rejecting] = useActionState(rejectAction, {});
   return (
-    <li data-review={title} className="rounded-xl border border-copper/40 p-5">
+    <li data-review={title} className="rounded-xl border border-copper/40 bg-forest-900/30 p-5">
       <p className="text-lg text-bone-50">{title}</p>
       {meta.map((line) => <p key={line} className="text-sm text-bone-200">{line}</p>)}
       {photo && (
@@ -78,6 +81,7 @@ export function ReviewItem({
 }
 
 const STATUS_LABEL = { pending: "Waiting", link_sent: "Link sent", declined: "Declined" };
+const STATUS_TONE = { pending: "attention", link_sent: "good", declined: "neutral" } as const;
 
 type RequestRowProps = {
   request: {
@@ -109,16 +113,18 @@ function StatusButton({ id, status, label }: { id: string; status: string; label
 export function RequestRow({ request, chatUrl, groupLinks = [] }: RequestRowProps) {
   const [state, remove, removing] = useActionState(deleteRequestAction, {});
   return (
-    <li data-request={request.phone} className="rounded-xl border border-border p-5">
-      <p className="text-lg text-bone-50">{request.name}</p>
+    <li data-request={request.phone} className="rounded-xl border border-border bg-forest-900/30 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-lg font-medium text-bone-50">{request.name}</p>
+        <Badge tone={STATUS_TONE[request.status]}>{STATUS_LABEL[request.status]}</Badge>
+      </div>
       <p className="text-sm text-bone-200">
         {request.phone}
         {request.email && ` · ${request.email}`} · {request.createdAt}
       </p>
       {request.message && <p className="mt-2 text-sm whitespace-pre-line text-bone-100">{request.message}</p>}
-      <p className="mt-2 text-sm text-copper-400">{STATUS_LABEL[request.status]}</p>
       <div className="mt-3 flex flex-wrap items-start gap-3">
-        <a href={chatUrl} target="_blank" rel="noopener noreferrer" className={button}>Open WhatsApp</a>
+        <a href={chatUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ size: "default", className: "h-10 px-4" })}>Open WhatsApp</a>
         {groupLinks.map(({ name, url }) => (
           <a key={name} href={url} target="_blank" rel="noopener noreferrer" className={button}>Send {name} link</a>
         ))}
@@ -126,7 +132,7 @@ export function RequestRow({ request, chatUrl, groupLinks = [] }: RequestRowProp
         {request.status !== "declined" && <StatusButton id={request.id} status="declined" label="Decline" />}
         <form action={remove}>
           <input type="hidden" name="id" value={request.id} />
-          <button type="submit" disabled={removing} className={button}>Delete</button>
+          <button type="submit" disabled={removing} className={dangerButton}>Delete</button>
           <Result state={state} />
         </form>
       </div>

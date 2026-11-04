@@ -14,6 +14,10 @@ import { buttonVariants } from "@/components/ui/button";
 import type { Post, PropertyRow } from "@/lib/content";
 import { LEAD_AREAS } from "@/lib/lead-options";
 
+import { dangerButton } from "./AdminForms";
+import { EmptyState, PageHeader } from "./ui";
+import { useSafeForm } from "./use-safe-form";
+
 const fieldClass =
   "mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-bone-50 focus-visible:outline-2 focus-visible:outline-copper-400";
 const labelClass = "block text-sm text-bone-200";
@@ -116,7 +120,7 @@ export function DeleteItem({
   const [confirming, setConfirming] = useState(false);
   if (!confirming) {
     return (
-      <button type="button" onClick={() => setConfirming(true)} className={button}>
+      <button type="button" onClick={() => setConfirming(true)} className={dangerButton}>
         Delete
       </button>
     );
@@ -137,10 +141,10 @@ export function DeleteItem({
 }
 
 function PropertyForm({ property, uploads }: { property?: PropertyRow; uploads: boolean }) {
-  const [state, action, pending] = useActionState(savePropertyAction, {});
+  const { state, pending, form } = useSafeForm(savePropertyAction);
   const isNew = !property;
   return (
-    <form action={action} className="grid gap-4 sm:grid-cols-2">
+    <form {...form} className="grid gap-4 sm:grid-cols-2">
       {property && <input type="hidden" name="id" value={property.id} />}
       <label className={`${labelClass} sm:col-span-2`}>
         Title
@@ -262,21 +266,21 @@ function ReviewBadge({ status, note }: { status: string; note: string | null }) 
 
 export function PropertyManager({ properties, uploads }: { properties: PropertyRow[]; uploads: boolean }) {
   return (
-    <section id="properties" className="mb-14 scroll-mt-6">
-      <h2 className="mb-4 text-2xl text-bone-50">Properties</h2>
-      <details className="mb-6 rounded-xl border border-border p-5">
-        <summary className="cursor-pointer font-medium text-copper-400">Add a property</summary>
+    <section aria-label="Properties">
+      <PageHeader title="Properties" description="Listings on your site. What a reviewer adds waits for approval." />
+      <details className="mb-6 rounded-xl border border-border bg-forest-900/30 px-5 py-3">
+        <summary>Add a property</summary>
         <div className="mt-5"><PropertyForm uploads={uploads} /></div>
       </details>
-      {properties.length === 0 && <p className="text-bone-200">No properties yet.</p>}
+      {properties.length === 0 && <EmptyState title="No properties yet">Add the first one above.</EmptyState>}
       <ul className="space-y-3">
         {properties.map((property) => (
-          <li key={property.id} data-property={property.title} className="rounded-xl border border-border p-5">
+          <li key={property.id} data-property={property.title} className="rounded-xl border border-border bg-forest-900/30 p-5">
             <p className="text-lg text-bone-50">{property.title}</p>
             <p className="text-sm text-bone-200">{property.area} · {property.status.replace("_", " ")}</p>
             <ReviewBadge status={property.reviewStatus} note={property.reviewNote} />
             <details className="mt-4">
-              <summary className="cursor-pointer text-sm text-copper-400">Edit</summary>
+              <summary>Edit</summary>
               <div className="mt-4"><PropertyForm property={property} uploads={uploads} /></div>
             </details>
             <div className="mt-4">
@@ -290,9 +294,9 @@ export function PropertyManager({ properties, uploads }: { properties: PropertyR
 }
 
 function PostForm({ post, uploads }: { post?: Post; uploads: boolean }) {
-  const [state, action, pending] = useActionState(savePostAction, {});
+  const { state, pending, form } = useSafeForm(savePostAction);
   return (
-    <form action={action} className="space-y-4">
+    <form {...form} className="space-y-4">
       {post && <input type="hidden" name="id" value={post.id} />}
       <label className={labelClass}>
         Title
@@ -328,20 +332,20 @@ function PostForm({ post, uploads }: { post?: Post; uploads: boolean }) {
 
 export function PostManager({ posts, uploads }: { posts: Post[]; uploads: boolean }) {
   return (
-    <section className="mb-14">
-      <h2 className="mb-4 text-2xl text-bone-50">Blog</h2>
-      <details className="mb-6 rounded-xl border border-border p-5">
-        <summary className="cursor-pointer font-medium text-copper-400">Add a post</summary>
+    <section aria-label="Blog">
+      <PageHeader title="Blog" description="Posts wait for approval before they appear on the site." />
+      <details className="mb-6 rounded-xl border border-border bg-forest-900/30 px-5 py-3">
+        <summary>Add a post</summary>
         <div className="mt-5"><PostForm uploads={uploads} /></div>
       </details>
-      {posts.length === 0 && <p className="text-bone-200">No posts yet.</p>}
+      {posts.length === 0 && <EmptyState title="No posts yet">Write the first one above.</EmptyState>}
       <ul className="space-y-3">
         {posts.map((post) => (
-          <li key={post.id} data-post={post.title} className="rounded-xl border border-border p-5">
+          <li key={post.id} data-post={post.title} className="rounded-xl border border-border bg-forest-900/30 p-5">
             <p className="text-lg text-bone-50">{post.title}</p>
             <ReviewBadge status={post.reviewStatus} note={post.reviewNote} />
             <details className="mt-4">
-              <summary className="cursor-pointer text-sm text-copper-400">Edit</summary>
+              <summary>Edit</summary>
               <div className="mt-4"><PostForm post={post} uploads={uploads} /></div>
             </details>
             <div className="mt-4">

@@ -66,6 +66,8 @@ export async function login(_: ActionState, form: FormData): Promise<ActionState
     if (error instanceof AdminError) return { error: error.message };
     throw error;
   }
+  // Drops what the browser kept from whoever used this tab before, so it can't show to the next person.
+  revalidatePath("/admin", "layout");
   redirect("/admin");
 }
 
@@ -73,6 +75,7 @@ export async function logout(): Promise<void> {
   const token = await getSessionToken();
   if (token && isAdminConfigured()) await deleteSession(db, token);
   await clearSessionCookie();
+  revalidatePath("/admin", "layout");
   redirect("/admin/login");
 }
 

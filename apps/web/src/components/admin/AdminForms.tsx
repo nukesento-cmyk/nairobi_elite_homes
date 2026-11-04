@@ -22,6 +22,11 @@ export const secondaryButton = buttonVariants({
   className: "h-10 bg-transparent px-4",
 });
 
+/** The one main action in a form. Everything else stays secondary, and risky actions look risky. */
+export const primaryButton = buttonVariants({ size: "default", className: "h-10 px-4" });
+export const dangerButton =
+  "inline-flex h-10 items-center justify-center rounded-lg border border-terracotta/60 px-4 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta/10 focus-visible:outline-2 focus-visible:outline-terracotta disabled:opacity-50";
+
 export type BrandOption = { id: string; name: string };
 
 /** Only the SuperAdmin chooses. Everyone else always works in their own brand. */
@@ -116,7 +121,7 @@ export function ChangePasswordForm() {
           className={fieldClass}
         />
       </label>
-      <button type="submit" disabled={pending} className={secondaryButton}>
+      <button type="submit" disabled={pending} className={primaryButton}>
         Change password
       </button>
       <Result state={state} />
@@ -155,7 +160,7 @@ export function CreateAdminForm({ roles, brands }: { roles: string[]; brands?: B
           <input name="email" type="email" required autoComplete="off" className={fieldClass} />
         </label>
       </div>
-      <button type="submit" disabled={pending} className={`${secondaryButton} mt-4`}>
+      <button type="submit" disabled={pending} className={`${primaryButton} mt-4`}>
         Add {roles.length === 1 ? ROLE_NAME[roles[0]].toLowerCase() : "account"}
       </button>
       <Result state={state} />
@@ -178,7 +183,7 @@ export function EditAdminForm({ id, name, email }: { id: string; name: string; e
           <input name="email" type="email" required defaultValue={email} className={fieldClass} />
         </label>
       </div>
-      <button type="submit" disabled={pending} className={`${secondaryButton} mt-4`}>
+      <button type="submit" disabled={pending} className={`${primaryButton} mt-4`}>
         Save changes
       </button>
       <Result state={state} />
@@ -206,7 +211,7 @@ export function DeleteAdminForm({ id, name }: { id: string; name: string }) {
 
   if (!confirming) {
     return (
-      <button type="button" onClick={() => setConfirming(true)} className={secondaryButton}>
+      <button type="button" onClick={() => setConfirming(true)} className={dangerButton}>
         Delete
       </button>
     );

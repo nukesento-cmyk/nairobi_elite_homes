@@ -13,110 +13,171 @@ import {
   TermsForm,
   VerifyDocumentButton,
 } from "./OnboardingForms";
+import { Badge, Callout, Card, EmptyState, PageHeader, SectionTitle, type Tone } from "./ui";
 
 const docLabel = (value: string) => OWNER_DOCUMENT_TYPES.find((type) => type.value === value)?.label ?? value;
 
-function Step({ done, label, children }: { done: boolean; label: string; children?: ReactNode }) {
+function stateOf(card: OnboardingCard): { label: string; tone: Tone } {
+  if (card.failedReason) return { label: "Stopped", tone: "problem" };
+  if (card.finalApprovedAt) return { label: "Published", tone: "good" };
+  if (card.submittedAt) return { label: "Waiting for final approval", tone: "attention" };
+  return { label: "In progress", tone: "neutral" };
+}
+
+type StepInfo = { label: string; done: boolean; hint?: string; action?: ReactNode };
+
+/** The steps in order. Only the next one offers its action, so there's always one clear thing to do. */
+function Stepper({ steps }: { steps: StepInfo[] }) {
+  const next = steps.findIndex((step) => !step.done);
   return (
-    <li className="rounded-lg border border-border p-4">
-      <p className={done ? "text-sm text-bone-200" : "text-sm text-bone-50"}>{done ? "Done: " : ""}{label}</p>
-      {!done && children && <div className="mt-3">{children}</div>}
-    </li>
+    <ol className="space-y-2">
+      {steps.map((step, index) => {
+        const current = index === next;
+        return (
+          <li key={step.label} aria-current={current ? "step" : undefined} className={`flex gap-3 rounded-lg p-3 ${current ? "border border-copper/50 bg-copper/5" : ""}`}>
+            <span aria-hidden="true" className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
+              step.done ? "bg-moss/20 text-moss" : current ? "bg-copper text-forest-950" : "border border-border text-bone-200"
+            }`}>
+              {step.done ? "✓" : index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className={`text-sm ${step.done ? "text-bone-200" : current ? "font-medium text-bone-50" : "text-bone-200"}`}>
+                {step.done && <span className="sr-only">Done: </span>}
+                {step.label}
+              </p>
+              {current && step.hint && <p className="mt-1 text-sm text-bone-200">{step.hint}</p>}
+              {current && step.action && <div className="mt-3">{step.action}</div>}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
-function stateOf(card: OnboardingCard): string {
-  if (card.failedReason) return `Stopped: ${card.failedReason}`;
-  if (card.finalApprovedAt) return "Approved and published";
-  if (card.submittedAt) return "With Approvals, waiting for an admin who didn't verify the documents";
-  return "In progress";
-}
-
-function Card({ card, uploads }: { card: OnboardingCard; uploads: boolean }) {
+function OnboardingItem({ card, uploads }: { card: OnboardingCard; uploads: boolean }) {
   const open = !card.failedReason && !card.submittedAt;
+  const state = stateOf(card);
+  const steps: StepInfo[] = [
+    {
+      label: "Identity verified",
+      done: Boolean(card.identityAt),
+      hint: "Needs a checked ID or passport.",
+      action: open && <ConfirmStepButton id={card.id} step="identity" label="Confirm identity" />,
+    },
+    {
+      label: "Ownership or legal authority verified",
+      done: Boolean(card.ownershipAt),
+      hint: "Needs a checked proof of ownership or authority. Do an official land search where needed.",
+      action: open && <ConfirmStepButton id={card.id} step="ownership" label="Confirm ownership or authority" />,
+    },
+    {
+      label: "Property availability confirmed",
+      done: Boolean(card.availabilityAt),
+      action: open && <ConfirmStepButton id={card.id} step="availability" label="Confirm it's available" />,
+    },
+    {
+      label: card.termsAt ? `Price and terms: ${card.agreedCurrency} ${Number(card.agreedAmount).toLocaleString("en-US")}, ${card.agreedPeriod === "month" ? "monthly rent" : "sale"}` : "Asking price and marketing terms confirmed",
+      done: Boolean(card.termsAt),
+      action: open && <TermsForm id={card.id} />,
+    },
+    {
+      label: "Written marketing authority signed",
+      done: Boolean(card.authorityAt),
+      hint: "Needs a checked signed authority. This secures the mandate.",
+      action: open && <ConfirmStepButton id={card.id} step="authority" label="Confirm signed authority" />,
+    },
+    {
+      label: "Authorised photos and details sent for final approval",
+      done: Boolean(card.submittedAt),
+      action: open && <SubmitPropertyForm id={card.id} uploads={uploads} />,
+    },
+    {
+      label: "Final approval, by an admin who didn't verify the documents",
+      done: Boolean(card.finalApprovedAt),
+      hint: "It's under Approvals. You can't approve what you verified, so this needs a second person.",
+    },
+  ];
+  const done = steps.filter((step) => step.done).length;
+
   return (
-    <li data-onboarding={card.prospectName} className="rounded-xl border border-border p-5">
-      <p className="text-lg text-bone-50">{card.prospectName}</p>
-      <p className="text-sm text-bone-200">{stateOf(card)}</p>
-
-      {open && (
-        <div className="mt-4">
-          <IssueLinkForm id={card.id} active={card.linkExpiresAt !== null} />
-          {card.linkExpiresAt && <p className="mt-2 text-sm text-bone-200">An upload link is active until {card.linkExpiresAt.slice(0, 10)}.</p>}
+    <Card data-onboarding={card.prospectName}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-lg font-medium text-bone-50">{card.prospectName}</p>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-bone-200">{done} of {steps.length} steps</span>
+          <Badge tone={state.tone}>{state.label}</Badge>
         </div>
-      )}
+      </div>
+      <div aria-hidden="true" className="mt-3 h-1.5 overflow-hidden rounded-full bg-forest-950/60">
+        <div className="h-full rounded-full bg-copper" style={{ width: `${(done / steps.length) * 100}%` }} />
+      </div>
+      {card.failedReason && <div className="mt-4"><Callout tone="problem">Stopped: {card.failedReason}</Callout></div>}
 
-      <h4 className="mt-5 mb-2 text-bone-50">Documents ({card.documents.length})</h4>
-      {card.documents.length === 0 ? (
-        <p className="text-sm text-bone-200">None yet.</p>
-      ) : (
-        <ul className="grid gap-3">
-          {card.documents.map((doc) => (
-            <li key={doc.id} className="rounded-lg border border-border p-3 text-sm">
-              <p className="text-bone-100">{docLabel(doc.docType)} {doc.verified ? "· checked" : "· not checked yet"}</p>
-              <p className="text-bone-200">Deleted automatically after {doc.deleteAfter}</p>
-              <div className="mt-2 flex flex-wrap items-start gap-3">
-                <a href={`/admin/documents/${doc.id}`} className="py-2 text-copper-400 underline underline-offset-4">Download</a>
-                {!doc.verified && <VerifyDocumentButton id={doc.id} />}
-                <RemoveDocumentButton id={doc.id} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      {open && (
-        <details className="mt-3">
-          <summary className="cursor-pointer text-sm text-copper-400">Add a document yourself</summary>
-          <div className="mt-3"><StaffUploadForm id={card.id} /></div>
-        </details>
-      )}
+      <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div>
+          <SectionTitle>Checklist</SectionTitle>
+          <Stepper steps={steps} />
+        </div>
 
-      <h4 className="mt-5 mb-2 text-bone-50">Checklist</h4>
-      <ol className="grid gap-3">
-        <Step done={Boolean(card.identityAt)} label="Identity verified">
-          {open && <ConfirmStepButton id={card.id} step="identity" label="Confirm identity" />}
-        </Step>
-        <Step done={Boolean(card.ownershipAt)} label="Ownership or legal authority verified. Do an official land search where needed.">
-          {open && <ConfirmStepButton id={card.id} step="ownership" label="Confirm ownership or authority" />}
-        </Step>
-        <Step done={Boolean(card.availabilityAt)} label="Property availability confirmed">
-          {open && <ConfirmStepButton id={card.id} step="availability" label="Confirm it's available" />}
-        </Step>
-        <Step done={Boolean(card.termsAt)} label={card.termsAt ? `Price and terms confirmed: ${card.agreedCurrency} ${card.agreedAmount}, ${card.agreedPeriod === "month" ? "monthly rent" : "sale"}` : "Asking price and marketing terms confirmed"}>
-          {open && <TermsForm id={card.id} />}
-        </Step>
-        <Step done={Boolean(card.authorityAt)} label="Written marketing authority signed. This secures the mandate.">
-          {open && <ConfirmStepButton id={card.id} step="authority" label="Confirm signed authority" />}
-        </Step>
-        <Step done={Boolean(card.submittedAt)} label="Authorised photos and details sent for final approval">
-          {open && card.authorityAt && <SubmitPropertyForm id={card.id} uploads={uploads} />}
-        </Step>
-        <Step done={Boolean(card.finalApprovedAt)} label="Final approval by an admin who didn't verify the documents, under Approvals" />
-      </ol>
-
-      {open && (
-        <details className="mt-4">
-          <summary className="cursor-pointer text-sm text-copper-400">Stop this onboarding</summary>
-          <div className="mt-3"><FailOnboardingForm id={card.id} /></div>
-        </details>
-      )}
-    </li>
+        <div>
+          <SectionTitle>Documents ({card.documents.length})</SectionTitle>
+          {open && (
+            <div className="mb-3">
+              <IssueLinkForm id={card.id} active={card.linkExpiresAt !== null} />
+              {card.linkExpiresAt && <p className="mt-2 text-sm text-bone-200">An upload link is active until {card.linkExpiresAt.slice(0, 10)}.</p>}
+            </div>
+          )}
+          {card.documents.length === 0 ? (
+            <p className="text-sm text-bone-200">None yet. Send the owner an upload link.</p>
+          ) : (
+            <ul className="space-y-2">
+              {card.documents.map((doc) => (
+                <li key={doc.id} className="rounded-lg bg-forest-950/50 p-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-bone-100">{docLabel(doc.docType)}</p>
+                    <Badge tone={doc.verified ? "good" : "attention"}>{doc.verified ? "Checked" : "Not checked"}</Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-bone-200">Deleted automatically after {doc.deleteAfter}</p>
+                  <div className="mt-2 flex flex-wrap items-start gap-2">
+                    <a href={`/admin/documents/${doc.id}`} className="inline-flex h-10 items-center px-1 text-copper-400 underline underline-offset-4">Download</a>
+                    {!doc.verified && <VerifyDocumentButton id={doc.id} />}
+                    <RemoveDocumentButton id={doc.id} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {open && (
+            <details className="mt-3">
+              <summary>Add a document yourself</summary>
+              <div className="mt-3"><StaffUploadForm id={card.id} /></div>
+            </details>
+          )}
+          {open && (
+            <details className="mt-1">
+              <summary>Stop this onboarding</summary>
+              <div className="mt-3"><FailOnboardingForm id={card.id} /></div>
+            </details>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 }
 
 export function OnboardingPanel({ cards, missing, uploads }: { cards: OnboardingCard[]; missing: string[]; uploads: boolean }) {
   return (
-    <section id="onboarding" className="mb-14 scroll-mt-6" aria-labelledby="onboarding-heading">
-      <h2 id="onboarding-heading" className="mb-2 text-2xl text-bone-50">Onboarding ({cards.length})</h2>
-      <p className="mb-6 text-sm text-bone-200">
-        Start one from a lead that has expressed interest. Nothing is published until every step here is done.
-      </p>
+    <section aria-label="Onboarding">
+      <PageHeader title="Onboarding" description="From an interested owner to a published listing. Nothing is published until every step here is done." />
       {missing.length > 0 && (
-        <p className="mb-4 text-sm text-bone-100">Documents can&apos;t be uploaded or opened until these settings are added: {missing.join(", ")}.</p>
+        <div className="mb-4"><Callout tone="problem">Documents can&apos;t be uploaded or opened until these settings are added: {missing.join(", ")}.</Callout></div>
       )}
-      {cards.length === 0 ? <p className="text-sm text-bone-200">Nothing being onboarded.</p> : (
+      {cards.length === 0 ? (
+        <EmptyState title="Nothing being onboarded">Start one from a lead who has expressed interest, under Leads.</EmptyState>
+      ) : (
         <ul className="grid gap-4">
-          {cards.map((card) => <Card key={card.id} card={card} uploads={uploads} />)}
+          {cards.map((card) => <li key={card.id}><OnboardingItem card={card} uploads={uploads} /></li>)}
         </ul>
       )}
     </section>

@@ -54,8 +54,8 @@ function RequestTrend({ daily }: { daily: RequestStats["daily"] }) {
 export function AdminOverview({ stats, monthlyPrice }: { stats: RequestStats; monthlyPrice: number | null }) {
   const bread = estimateBread(stats, monthlyPrice);
   return (
-    <section id="overview" aria-labelledby="overview-heading" className="mb-14 scroll-mt-6">
-      <h2 id="overview-heading" className="sr-only">Overview</h2>
+    <section aria-labelledby="overview-heading">
+      <h3 id="overview-heading" className="mb-3 font-sans text-base font-semibold text-bone-50">Private community</h3>
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-copper/50 bg-forest-900/60 p-6 lg:row-span-2 lg:flex lg:flex-col lg:justify-center">
           <p className="text-sm text-copper-400">Estimated bread, per month</p>
