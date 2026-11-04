@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check-revalidation": "node scripts/check-revalidation.mjs",
+    "db:apply": "node --env-file-if-exists=.env.local scripts/apply-schema.mjs",
     "seed-admins": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local scripts/seed-admins.mjs",
     "seed-blogs": "node --env-file-if-exists=.env.local scripts/seed-blogs.mjs"
   },
