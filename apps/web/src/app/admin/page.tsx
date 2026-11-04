@@ -38,7 +38,7 @@ import {
 } from "@/lib/admin/accounts";
 import { accessRequestStats, listAccessRequests } from "@/lib/access-requests";
 import { emailSender, researchConfig } from "@/lib/acquisition/cron";
-import { listLeads, listPendingDomains, listRecipients, listReports } from "@/lib/acquisition/dashboard";
+import { countDoNotContact, listLeads, listPendingDomains, listRecipients, listReports } from "@/lib/acquisition/dashboard";
 import { isResearchEnabled } from "@/lib/acquisition/settings";
 import { DEFAULT_BRAND_ID, listBrands, type Brand } from "@/lib/brands";
 import { brandOrigin } from "@/lib/brand-site";
@@ -115,14 +115,15 @@ async function Dashboard() {
 
   const researchSettings = researchConfig(process.env);
   const researchOn = isSuperadmin && (await isResearchEnabled(db, DEFAULT_BRAND_ID));
-  const [acquisitionReports, reportRecipients, pendingDomains, acquisitionLeads] = isSuperadmin
+  const [acquisitionReports, reportRecipients, pendingDomains, acquisitionLeads, doNotContactCount] = isSuperadmin
     ? await Promise.all([
         listReports(db, me, DEFAULT_BRAND_ID),
         listRecipients(db, me, DEFAULT_BRAND_ID),
         listPendingDomains(db, me, DEFAULT_BRAND_ID),
         listLeads(db, me, DEFAULT_BRAND_ID),
+        countDoNotContact(db, me),
       ])
-    : [[], [], [], []];
+    : [[], [], [], [], 0];
 
   const uploads = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
   const [requests, queue] = canReview(me)
@@ -167,6 +168,7 @@ async function Dashboard() {
           researchMissing={researchSettings.state === "misconfigured" ? researchSettings.missing : []}
           domains={pendingDomains}
           leads={acquisitionLeads}
+          doNotContactCount={doNotContactCount}
         />
       )}
 

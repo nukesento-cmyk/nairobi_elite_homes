@@ -57,6 +57,17 @@ Owners and their representatives can submit a property at `/list-your-property`.
 
 **Have an advocate review the consent wording and the privacy policy before relying on this.**
 
+## Calls and opt-outs
+
+Under Acquisition, each approved lead has **Log a call**. It records the outcome, notes, an optional follow-up date, and that the caller told them they can opt out, which is required for any real conversation. Leads with a follow-up due come first, and the morning report counts them.
+
+- **Opt-out on a call:** choose "Asked not to be contacted". All their contacts go on the list straight away, and they leave the call list.
+- **Opt-out any other way:** use the Do Not Contact button on the lead, or the Do Not Contact list form if they aren't a lead. Act within 14 days.
+- **Do Not Contact can't be undone on the dashboard.** Recording fresh consent is still to be built.
+- **Possible duplicates** block approval until someone checks them. Choose "Not a duplicate", or reject the lead if it's really the same one. Merging isn't built.
+
+Only the SuperAdmin can use these today. A caller role and assigned leads are still to be built.
+
 ## Setup
 
 1. Add these production variables in Vercel:

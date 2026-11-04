@@ -40,7 +40,7 @@ export async function reportRecipients(db: Db, brandId: string): Promise<string[
 const TOP_LEADS = 10;
 
 /** Today's real leads and funnel. Contact details stay out: they live behind the dashboard sign-in. */
-async function loadTodaysResearch(db: Db, brandId: string, runDate: string): Promise<{ leads: ReportLead[]; count: number; funnel: { label: string; count: number }[] }> {
+async function loadTodaysResearch(db: Db, brandId: string, runDate: string): Promise<{ leads: ReportLead[]; count: number; followUpsDue: number; funnel: { label: string; count: number }[] }> {
   const today = `((p.created_at AT TIME ZONE 'UTC') + interval '3 hours')::date = $2::text::date`;
   const rows = await db.query<{ score: number; name: string; category: string; campaign: string; role: string; authority: string; property: string | null; quote: string; url: string }>(
     `SELECT p.score, p.display_name AS name, p.category, p.campaign, p.owner_rep_class AS role, p.authority_status AS authority,
@@ -59,6 +59,13 @@ async function loadTodaysResearch(db: Db, brandId: string, runDate: string): Pro
     [brandId, runDate],
   );
 
+  const [activity] = await db.query<{ due: string; calls: string }>(
+    `SELECT
+       (SELECT count(*) FROM acq_prospects WHERE brand_id = $1 AND next_follow_up_at <= now() AND status NOT IN ('rejected', 'do_not_contact'))::text AS due,
+       (SELECT count(*) FROM acq_interactions WHERE brand_id = $1 AND channel = 'call' AND occurred_at > now() - interval '1 day')::text AS calls`,
+    [brandId],
+  );
+
   const [stages] = await db.query<Record<"found" | "no_lead" | "people" | "refused" | "qualified" | "domains", string>>(
     `SELECT
        count(*) FILTER (WHERE ((discovered_at AT TIME ZONE 'UTC') + interval '3 hours')::date = $2::text::date)::text AS found,
@@ -73,6 +80,7 @@ async function loadTodaysResearch(db: Db, brandId: string, runDate: string): Pro
 
   return {
     count: rows.length,
+    followUpsDue: Number(activity.due),
     leads: rows.slice(0, TOP_LEADS).map((row) => ({
       score: row.score,
       prospect: row.name,
@@ -83,6 +91,8 @@ async function loadTodaysResearch(db: Db, brandId: string, runDate: string): Pro
       sourceUrl: row.url,
     })),
     funnel: [
+      { label: "follow-ups due", count: Number(activity.due) },
+      { label: "calls logged in the last day", count: Number(activity.calls) },
       { label: "owner form submissions", count: Number(owners) },
       { label: "pages found", count: Number(stages.found) },
       { label: "pages with no lead", count: Number(stages.no_lead) },
@@ -147,9 +157,9 @@ export async function runDailyJob(deps: DailyJobDeps, startedBy: "cron" | "watch
       name: "report",
       run: async (outputs) => {
         const { checks, researchOn } = outputs.self_check as { checks: Check[]; researchOn: boolean };
-        const { leads, count, funnel } = await loadTodaysResearch(deps.db, deps.brandId, runDate);
-        // Owner submissions are real leads, so they get a real report even with research off.
-        if (!researchOn && count === 0) {
+        const { leads, count, followUpsDue, funnel } = await loadTodaysResearch(deps.db, deps.brandId, runDate);
+        // Owner submissions and follow-ups are real work, so they get a real report even with research off.
+        if (!researchOn && count === 0 && followUpsDue === 0) {
           return buildDailyReport({ runDate, isTest: true, startedAt: now(), realLeadCount: 0, leads: SAMPLE_LEADS, checks });
         }
         return buildDailyReport({ runDate, isTest: false, startedAt: now(), realLeadCount: count, leads, checks, funnel });

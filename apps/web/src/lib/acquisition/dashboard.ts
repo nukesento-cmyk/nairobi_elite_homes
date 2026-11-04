@@ -114,6 +114,10 @@ export type LeadRow = {
   evidence: { claimType: string; quote: string; url: string }[];
   contacts: { kind: string; value: string; contactClass: string; callable: boolean }[];
   property: string | null;
+  nextFollowUp: string | null;
+  followUpDue: boolean;
+  calls: { outcome: string; notes: string | null; at: string }[];
+  possibleDuplicates: { name: string; reason: string }[];
 };
 
 const LEADS_SHOWN = 50;
@@ -128,11 +132,38 @@ export async function listLeads(db: Db, actor: Admin, brandId: string): Promise<
                  FROM acq_evidence e JOIN acq_source_records s ON s.id = e.source_record_id WHERE e.prospect_id = p.id), '[]') AS evidence,
        COALESCE((SELECT jsonb_agg(jsonb_build_object('kind', c.kind, 'value', c.normalised_value, 'contactClass', c.contact_class, 'callable', r.callable AND c.usable))
                  FROM acq_contacts c JOIN acq_contact_class_rules r ON r.brand_id = c.brand_id AND r.contact_class = c.contact_class
-                 WHERE c.prospect_id = p.id), '[]') AS contacts
-     FROM acq_prospects p WHERE p.brand_id = $1 AND p.status IN ('researched', 'ready_to_call')
-     ORDER BY p.status, p.score DESC NULLS LAST, p.created_at DESC LIMIT ${LEADS_SHOWN}`,
+                 WHERE c.prospect_id = p.id), '[]') AS contacts,
+       ((p.next_follow_up_at AT TIME ZONE 'UTC') + interval '3 hours')::date::text AS "nextFollowUp",
+       COALESCE(p.next_follow_up_at <= now(), false) AS "followUpDue",
+       COALESCE((SELECT jsonb_agg(row_to_json(i)) FROM (
+                   SELECT outcome, notes, ((occurred_at AT TIME ZONE 'UTC') + interval '3 hours')::date::text AS at
+                   FROM acq_interactions WHERE prospect_id = p.id ORDER BY occurred_at DESC LIMIT 10) i), '[]') AS calls,
+       COALESCE((SELECT jsonb_agg(jsonb_build_object('name', other.display_name, 'reason', d.reason))
+                 FROM acq_duplicate_candidates d
+                 JOIN acq_prospects other ON other.id = CASE WHEN d.prospect_id = p.id THEN d.possible_match_id ELSE d.prospect_id END
+                 WHERE d.status = 'open' AND p.id IN (d.prospect_id, d.possible_match_id)), '[]') AS "possibleDuplicates"
+     FROM acq_prospects p
+     WHERE p.brand_id = $1 AND p.status IN ('researched', 'ready_to_call', 'contacted', 'interested', 'meeting_scheduled', 'negotiating', 'follow_up')
+     ORDER BY COALESCE(p.next_follow_up_at <= now(), false) DESC, p.next_follow_up_at NULLS LAST, p.score DESC NULLS LAST, p.created_at DESC
+     LIMIT ${LEADS_SHOWN}`,
     [brandId],
   );
+}
+
+/** A person has compared them and says they're different, which clears the block on approving. */
+export async function clearPossibleDuplicates(db: Db, actor: Admin, brandId: string, prospectId: string): Promise<void> {
+  requireSuperadmin(actor);
+  await db.query(
+    `UPDATE acq_duplicate_candidates SET status = 'not_duplicate', resolved_by = $3, resolved_at = now()
+     WHERE brand_id = $1 AND status = 'open' AND $2::text::uuid IN (prospect_id, possible_match_id)`,
+    [brandId, prospectId, actor.id],
+  );
+}
+
+export async function countDoNotContact(db: Db, actor: Admin): Promise<number> {
+  requireSuperadmin(actor);
+  const [row] = await db.query<{ count: string }>(`SELECT count(*)::text AS count FROM acq_suppression`);
+  return Number(row.count);
 }
 
 /** The database decides if this is allowed, and its reason is what the person sees. */

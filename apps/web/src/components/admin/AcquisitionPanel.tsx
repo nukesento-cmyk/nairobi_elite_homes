@@ -1,6 +1,19 @@
 import type { LeadRow, PendingDomain, Recipient, RunSummary } from "@/lib/acquisition/dashboard";
 
-import { AddRecipientForm, DomainDecisionForm, LeadDecisionForms, RemoveRecipientForm, ResearchSwitchForm, SendReportForm } from "./AcquisitionForms";
+import { CALL_OUTCOMES } from "@/lib/acquisition/call-outcomes";
+
+import {
+  AddRecipientForm,
+  DoNotContactForm,
+  DomainDecisionForm,
+  LeadDecisionForms,
+  LogCallForm,
+  NotDuplicateForm,
+  RemoveRecipientForm,
+  ResearchSwitchForm,
+  SendReportForm,
+  SuppressContactForm,
+} from "./AcquisitionForms";
 
 function outcome(run: RunSummary): string {
   if (run.status === "failed") return `Failed: ${run.error ?? "unknown error"}`;
@@ -8,13 +21,30 @@ function outcome(run: RunSummary): string {
   return run.emailed ? "Emailed" : "On this dashboard only";
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  researched: "Awaiting approval",
+  ready_to_call: "Ready to call",
+  contacted: "Contacted",
+  interested: "Interested",
+  meeting_scheduled: "Meeting scheduled",
+  negotiating: "Negotiating",
+  follow_up: "Follow up",
+};
+
+const outcomeLabel = (value: string) => CALL_OUTCOMES.find((item) => item.value === value)?.label ?? value;
+
 function LeadCard({ lead }: { lead: LeadRow }) {
   return (
     <li data-lead={lead.name} className="rounded-xl border border-border p-5">
       <p className="text-lg text-bone-50">{lead.name}</p>
       <p className="text-sm text-bone-200">
-        Score {lead.score ?? "not set"} · {lead.category} · {lead.campaign ?? "no campaign"} · {lead.status === "ready_to_call" ? "Ready to call" : "Awaiting approval"}
+        Score {lead.score ?? "not set"} · {lead.category} · {lead.campaign ?? "no campaign"} · {STATUS_LABEL[lead.status] ?? lead.status}
       </p>
+      {lead.nextFollowUp && (
+        <p className={`mt-1 text-sm ${lead.followUpDue ? "text-copper-400" : "text-bone-200"}`}>
+          {lead.followUpDue ? "Follow-up due" : "Follow up"}: {lead.nextFollowUp}
+        </p>
+      )}
       <p className="mt-1 text-sm text-bone-200">
         {lead.role}, {lead.authority}. Nothing here proves ownership until documents are checked at onboarding.
       </p>
@@ -46,7 +76,32 @@ function LeadCard({ lead }: { lead: LeadRow }) {
           <p className="mt-2 text-sm text-bone-100">{lead.script}</p>
         </details>
       )}
+      {lead.calls.length > 0 && (
+        <ul className="mt-3 grid gap-1 text-sm text-bone-200" aria-label={`Calls with ${lead.name}`}>
+          {lead.calls.map((call, index) => (
+            <li key={`${call.at}-${index}`}>
+              {call.at}: {outcomeLabel(call.outcome)}{call.notes ? `. ${call.notes}` : ""}
+            </li>
+          ))}
+        </ul>
+      )}
+      {lead.possibleDuplicates.length > 0 && (
+        <div className="mt-3 text-sm text-copper-400">
+          <p>Possible duplicate of: {lead.possibleDuplicates.map((match) => `${match.name} (${match.reason.toLowerCase()})`).join("; ")}. Check before approving. If it&apos;s really the same one, reject this lead.</p>
+          <NotDuplicateForm id={lead.id} name={lead.name} />
+        </div>
+      )}
       {lead.status === "researched" && <LeadDecisionForms id={lead.id} name={lead.name} />}
+      {lead.status !== "researched" && (
+        <details className="mt-3">
+          <summary className="cursor-pointer text-sm text-copper-400">Log a call</summary>
+          <LogCallForm id={lead.id} name={lead.name} />
+        </details>
+      )}
+      <details className="mt-3">
+        <summary className="cursor-pointer text-sm text-copper-400">Do Not Contact</summary>
+        <DoNotContactForm id={lead.id} name={lead.name} />
+      </details>
     </li>
   );
 }
@@ -59,6 +114,7 @@ export function AcquisitionPanel({
   researchMissing,
   domains,
   leads,
+  doNotContactCount,
 }: {
   reports: RunSummary[];
   recipients: Recipient[];
@@ -67,6 +123,7 @@ export function AcquisitionPanel({
   researchMissing: string[];
   domains: PendingDomain[];
   leads: LeadRow[];
+  doNotContactCount: number;
 }) {
   return (
     <section id="acquisition" className="mb-14 scroll-mt-6" aria-labelledby="acquisition-heading">
@@ -92,6 +149,14 @@ export function AcquisitionPanel({
           {leads.map((lead) => <LeadCard key={lead.id} lead={lead} />)}
         </ul>
       )}
+
+      <div className="mb-8 rounded-xl border border-border p-5">
+        <h3 className="mb-1 text-lg text-bone-50">Do Not Contact list ({doNotContactCount})</h3>
+        <p className="mb-3 text-sm text-bone-200">
+          For anyone who opts out by phone, message or email, whether or not they&apos;re a lead. Act on a request within 14 days. Only scrambled values are kept, so the list can&apos;t be read back.
+        </p>
+        <SuppressContactForm />
+      </div>
 
       <h3 className="mb-1 text-lg text-bone-50">Domains to review ({domains.length})</h3>
       <p className="mb-3 text-sm text-bone-200">
