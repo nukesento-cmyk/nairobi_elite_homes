@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 
 import { PGlite } from "@electric-sql/pglite";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Admin, Db } from "@/lib/admin/accounts";
 import { approveItem, publicProperties } from "@/lib/content";
@@ -12,12 +12,17 @@ import { runDailyJob } from "./daily-job";
 import { approveLead } from "./dashboard";
 import {
   confirmStep, decryptDocument, encryptDocument, failOnboarding, issueUploadLink, listOnboarding, purgeExpiredDocuments, readDocument, removeDocument,
-  saveDocumentAsStaff, saveDocumentFromLink, sniffDocumentType, startOnboarding, submitForApproval, verifyDocument, type DocumentStore,
+  probeDocumentStore, saveDocumentAsStaff, saveDocumentFromLink, sniffDocumentType, startOnboarding, submitForApproval, verifyDocument, type DocumentStore,
 } from "./onboarding";
+import { documentStoreFromEnv, missingDocumentSettings } from "./document-store";
 import { ownerSubmissionSchema } from "./owner-form";
 import { saveOwnerSubmission } from "./owner-submission";
 
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 60_000 });
+
+const { oidc, blob } = vi.hoisted(() => ({ oidc: vi.fn(), blob: { put: vi.fn(), get: vi.fn(), del: vi.fn() } }));
+vi.mock("@vercel/oidc", () => ({ getVercelOidcToken: oidc }));
+vi.mock("@vercel/blob", () => blob);
 
 const BRAND = "00000000-0000-4000-8000-000000000001";
 const KEY = Buffer.alloc(32, 7).toString("base64");
@@ -219,7 +224,70 @@ describe("how documents are stored", () => {
     expect((await runDailyJob({ db, brandId: BRAND, sendEmail: null, documents: down }, "cron")).status).toBe("completed");
     await pg.exec(`TRUNCATE acq_runs CASCADE`);
     expect((await runDailyJob({ db, brandId: BRAND, sendEmail: null, documents: { key: KEY, store } }, "cron")).status).toBe("completed");
+    expect(await db.query(`SELECT 1 FROM acq_onboarding_documents`)).toEqual([]);
+  });
+});
+
+describe("the storage check", () => {
+  it("stores, reads back and removes a test file, leaving nothing behind", async () => {
+    await probeDocumentStore({ store, key: KEY });
     expect(files.size).toBe(0);
+  });
+
+  it("fails if what comes back is wrong, and still cleans up", async () => {
+    const bad = { ...store, get: async () => Buffer.alloc(64) };
+    await expect(probeDocumentStore({ store: bad, key: KEY })).rejects.toThrow();
+    expect(files.size).toBe(0);
+  });
+
+  it("shows up as a failed check in the morning report", async () => {
+    await db.query(`INSERT INTO acq_report_recipients (brand_id, email) VALUES ($1, 'team@example.com')`, [BRAND]);
+    let text = "";
+    const down = { key: KEY, store: { ...store, put: async () => { throw new Error("store unreachable"); } } };
+    await runDailyJob({ db, brandId: BRAND, documents: down, sendEmail: async (email) => { text = email.text; } }, "cron");
+    expect(text).toContain("FAILED Document storage: Owners can't send documents: store unreachable");
+  });
+});
+
+describe("the document store", () => {
+  it("needs the store id and key before it does anything", () => {
+    expect(missingDocumentSettings({})).toEqual(["ACQUISITION_DOCUMENT_KEY", "ACQUISITION_BLOB_STORE_ID"]);
+    expect(documentStoreFromEnv({ ACQUISITION_DOCUMENT_KEY: "k", BLOB_READ_WRITE_TOKEN: "photos" })).toBeNull();
+    expect(documentStoreFromEnv({ ACQUISITION_DOCUMENT_KEY: "k", ACQUISITION_BLOB_STORE_ID: "store_x" })).not.toBeNull();
+  });
+
+  describe("signing in", () => {
+    const docs = () => documentStoreFromEnv({ ACQUISITION_DOCUMENT_KEY: "k", ACQUISITION_BLOB_STORE_ID: "store_docs" })!;
+
+    beforeEach(() => vi.stubEnv("BLOB_READ_WRITE_TOKEN", "vercel_blob_rw_photos_fake"));
+    afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
+
+    it.each([
+      ["fails", () => oidc.mockRejectedValue(new Error("no token"))],
+      ["is empty", () => oidc.mockResolvedValue("  ")],
+    ])("errors when the sign-in token %s, never reaching the file store", async (_, arrange) => {
+      arrange();
+      await expect(docs().store.put("x", Buffer.from("secret"))).rejects.toThrow();
+      await expect(docs().store.get("x")).rejects.toThrow();
+      await expect(docs().store.del("x")).rejects.toThrow();
+      expect(blob.put).not.toHaveBeenCalled();
+      expect(blob.get).not.toHaveBeenCalled();
+      expect(blob.del).not.toHaveBeenCalled();
+    });
+
+    it("always passes the sign-in token and this store, and never a stored token", async () => {
+      oidc.mockResolvedValue("short-lived-token");
+      blob.put.mockResolvedValue({ pathname: "x" });
+      blob.get.mockResolvedValue(null);
+      await docs().store.put("x", Buffer.from("secret"));
+      await docs().store.get("x");
+      await docs().store.del("x");
+      const expected = { oidcToken: "short-lived-token", storeId: "store_docs" };
+      expect(blob.put.mock.calls[0][2]).toMatchObject({ ...expected, access: "private" });
+      expect(blob.get.mock.calls[0][1]).toMatchObject({ ...expected, access: "private" });
+      expect(blob.del.mock.calls[0][1]).toEqual(expected);
+      expect(JSON.stringify([blob.put.mock.calls[0][2], blob.get.mock.calls[0][1], blob.del.mock.calls[0][1]])).not.toContain('"token"');
+    });
   });
 });
 

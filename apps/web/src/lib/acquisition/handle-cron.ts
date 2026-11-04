@@ -7,7 +7,9 @@ import { createClaudeResearcher } from "./ai";
 import { emailSender, isAuthorizedCron, missingConfig, monitorPinger, recipients, researchConfig } from "./cron";
 import { DAILY_JOB, runDailyJob } from "./daily-job";
 import { documentStoreFromEnv } from "./document-store";
+import { probeDocumentStore } from "./onboarding";
 import { runResearchSlot } from "./research";
+import { nairobiDate, runJob } from "./runner";
 import { isResearchEnabled } from "./settings";
 
 const noStore = { "cache-control": "no-store" };
@@ -49,6 +51,24 @@ export async function handleResearchRequest(request: Request): Promise<Response>
   if (result.status === "failed") {
     console.error(`Acquisition research slot ${slot} failed at ${result.step}: ${result.error}`);
     return Response.json({ status: result.status, step: result.step }, { status: 500, headers: noStore });
+  }
+  return Response.json({ status: result.status }, { headers: noStore });
+}
+
+/** Proves document storage works on the real platform. Can also be triggered on demand. */
+export async function handleStorageCheckRequest(request: Request): Promise<Response> {
+  if (!isAuthorizedCron(request.headers.get("authorization"), process.env.CRON_SECRET)) {
+    return new Response("Unauthorized", { status: 401, headers: noStore });
+  }
+  const documents = documentStoreFromEnv(process.env);
+  if (!documents) return Response.json({ status: "not_configured" }, { status: 503, headers: noStore });
+
+  const result = await runJob(db, { brandId: DEFAULT_BRAND_ID, job: "storage-check", runDate: nairobiDate(), startedBy: "cron" }, [
+    { name: "probe", run: async () => { await probeDocumentStore(documents); return { ok: true }; } },
+  ]);
+  if (result.status === "failed") {
+    console.error(`Document storage check failed: ${result.error}`);
+    return Response.json({ status: "failed" }, { status: 500, headers: noStore });
   }
   return Response.json({ status: result.status }, { headers: noStore });
 }

@@ -4,6 +4,7 @@
     { "path": "/api/cron/acquisition-research?slot=1", "schedule": "0 0 * * *" },
     { "path": "/api/cron/acquisition-research?slot=2", "schedule": "0 1 * * *" },
     { "path": "/api/cron/acquisition-research?slot=3", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/acquisition-storage-check", "schedule": "30 2 * * *" },
     { "path": "/api/cron/acquisition", "schedule": "0 3 * * *" },
     { "path": "/api/cron/acquisition-watchdog", "schedule": "0 4 * * *" }
   ]

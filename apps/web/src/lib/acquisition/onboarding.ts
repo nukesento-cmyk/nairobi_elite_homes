@@ -161,6 +161,19 @@ export async function removeDocument(deps: DocumentDeps, actor: Admin, brandId: 
   await deps.db.query(`INSERT INTO acq_audit_log (actor, action, table_name, record_id) VALUES ($1, 'DELETE_DOCUMENT', 'acq_onboarding_documents', $2)`, [actor.id, documentId]);
 }
 
+/** Stores, reads back and deletes a throwaway file, proving storage and encryption really work. */
+export async function probeDocumentStore({ store, key }: Omit<DocumentDeps, "db">): Promise<void> {
+  const id = randomUUID();
+  const plain = randomBytes(32);
+  const ref = await store.put(`health-check/${id}`, encryptDocument(key, id, plain));
+  try {
+    const back = await store.get(ref);
+    if (!back || !decryptDocument(key, id, back).equals(plain)) throw new Error("The file read back didn't match.");
+  } finally {
+    await store.del(ref);
+  }
+}
+
 /** Deletes documents past their keep-until date. One failure doesn't stop the rest. */
 export async function purgeExpiredDocuments(deps: DocumentDeps): Promise<{ deleted: number; failed: number }> {
   const due = await deps.db.query<{ id: string; storage_ref: string }>(`SELECT id, storage_ref FROM acq_onboarding_documents WHERE delete_after < now()::date LIMIT 200`);

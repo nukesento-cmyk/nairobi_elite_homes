@@ -82,7 +82,7 @@ Once a lead has expressed interest, the SuperAdmin presses **Start onboarding**.
 
 **Creating the store:** in the Vercel dashboard, open Storage, create a Blob store with Private access, and connect it to this project with the custom prefix `ACQUISITION_BLOB`. Don't use the default prefix, because it would clash with `BLOB_READ_WRITE_TOKEN`, which the public photo store uses. Redeploy afterwards.
 
-**Storage:** documents are encrypted with AES-256-GCM using `ACQUISITION_DOCUMENT_KEY`, then kept in a private Blob store through `ACQUISITION_BLOB_READ_WRITE_TOKEN`. Never change the key, or existing documents can't be opened. Keep a copy somewhere safe, because losing it loses the documents.
+**Storage:** documents are encrypted with AES-256-GCM using `ACQUISITION_DOCUMENT_KEY`, then kept in a private Blob store, found through `ACQUISITION_BLOB_STORE_ID`. It signs in with Vercel OIDC, so no long-lived token is stored, and it refuses to run without one rather than fall back to the public photo store. The morning report tests storage every day, and shows "Document storage" as failed if it stops working. Never change the key, or existing documents can't be opened. Keep a copy somewhere safe, because losing it loses the documents.
 
 **Retention:** the morning job deletes documents past their date: 90 days for most, 3 years for signed marketing authorities. Counsel should confirm these periods.
 

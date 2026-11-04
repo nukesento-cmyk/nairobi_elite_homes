@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { Db } from "@/lib/admin/accounts";
 
-import { purgeExpiredDocuments, type DocumentDeps } from "./onboarding";
+import { probeDocumentStore, purgeExpiredDocuments, type DocumentDeps } from "./onboarding";
 import { checkHostPolicy } from "./policy";
 import { buildDailyReport, type Report, type ReportLead } from "./report";
 import { nairobiDate, runJob, type RunResult, type Step } from "./runner";
@@ -152,7 +152,16 @@ export async function runDailyJob(deps: DailyJobDeps, startedBy: "cron" | "watch
               ? `Switched on, but can't run until these are set: ${missing.join(", ")}.`
               : "Switched on.",
         };
-        return { researchOn, checks: [...(await runSafetyChecks(deps.db, deps.brandId)), research] };
+        const storage: Check[] = [];
+        if (deps.documents) {
+          try {
+            await probeDocumentStore(deps.documents);
+            storage.push({ name: "Document storage", ok: true, detail: "A test file was stored, read back and deleted." });
+          } catch (cause) {
+            storage.push({ name: "Document storage", ok: false, detail: `Owners can't send documents: ${cause instanceof Error ? cause.message : String(cause)}` });
+          }
+        }
+        return { researchOn, checks: [...(await runSafetyChecks(deps.db, deps.brandId)), research, ...storage] };
       },
     },
     {
