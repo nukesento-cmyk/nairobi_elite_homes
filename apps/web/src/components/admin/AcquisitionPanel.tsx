@@ -1,6 +1,6 @@
 import type { LeadRow, PendingDomain, Recipient, RunSummary } from "@/lib/acquisition/dashboard";
 
-import { AddRecipientForm, DomainDecisionForm, LeadDecisionForms, RemoveRecipientForm, SendReportForm } from "./AcquisitionForms";
+import { AddRecipientForm, DomainDecisionForm, LeadDecisionForms, RemoveRecipientForm, ResearchSwitchForm, SendReportForm } from "./AcquisitionForms";
 
 function outcome(run: RunSummary): string {
   if (run.status === "failed") return `Failed: ${run.error ?? "unknown error"}`;
@@ -52,6 +52,7 @@ export function AcquisitionPanel({
   recipients,
   emailReady,
   researchOn,
+  researchMissing,
   domains,
   leads,
 }: {
@@ -59,17 +60,25 @@ export function AcquisitionPanel({
   recipients: Recipient[];
   emailReady: boolean;
   researchOn: boolean;
+  researchMissing: string[];
   domains: PendingDomain[];
   leads: LeadRow[];
 }) {
   return (
     <section id="acquisition" className="mb-14 scroll-mt-6" aria-labelledby="acquisition-heading">
       <h2 id="acquisition-heading" className="mb-2 text-2xl text-bone-50">Acquisition reports</h2>
-      <p className="mb-6 text-sm text-bone-200">
-        {researchOn
-          ? "Research runs before dawn, and a new report arrives every morning. Private individuals are skipped until legal advice clears them."
-          : "A new report arrives every morning. Research isn't switched on yet, so reports are labelled as tests and hold no real leads."}
-      </p>
+      <div data-research={researchOn ? "on" : "off"} className="mb-6 rounded-xl border border-border p-5">
+        <h3 className="mb-1 text-lg text-bone-50">Research is {researchOn ? "on" : "off"}</h3>
+        <p className="mb-3 text-sm text-bone-200">
+          {researchOn
+            ? "It runs before dawn, and a new report arrives every morning. Private individuals are skipped until legal advice clears them."
+            : "No websites are searched or read, and nothing is spent. Reports are labelled as tests and hold no real leads."}
+        </p>
+        {researchOn && researchMissing.length > 0 && (
+          <p className="mb-3 text-sm text-bone-100">It can&apos;t run until these settings are added: {researchMissing.join(", ")}.</p>
+        )}
+        <ResearchSwitchForm on={researchOn} />
+      </div>
 
       <h3 className="mb-3 text-lg text-bone-50">Leads ({leads.length})</h3>
       {leads.length === 0 ? (

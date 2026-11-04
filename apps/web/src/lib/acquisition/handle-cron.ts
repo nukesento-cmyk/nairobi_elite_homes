@@ -7,6 +7,7 @@ import { createClaudeResearcher } from "./ai";
 import { emailSender, isAuthorizedCron, missingConfig, monitorPinger, recipients, researchConfig } from "./cron";
 import { DAILY_JOB, runDailyJob } from "./daily-job";
 import { runResearchSlot } from "./research";
+import { isResearchEnabled } from "./settings";
 
 const noStore = { "cache-control": "no-store" };
 
@@ -20,8 +21,10 @@ export async function handleResearchRequest(request: Request): Promise<Response>
     return new Response("Unauthorized", { status: 401, headers: noStore });
   }
 
+  if (!env.DATABASE_URL) return Response.json({ status: "not_configured", missing: ["DATABASE_URL"] }, { status: 503, headers: noStore });
+  if (!(await isResearchEnabled(db, DEFAULT_BRAND_ID))) return Response.json({ status: "off" }, { headers: noStore });
+
   const config = researchConfig(env);
-  if (config.state === "off") return Response.json({ status: "off" }, { headers: noStore });
   if (config.state === "misconfigured") {
     console.error(`Acquisition research cannot run. Missing: ${config.missing.join(", ")}`);
     return Response.json({ status: "not_configured", missing: config.missing }, { status: 503, headers: noStore });
@@ -67,7 +70,10 @@ export async function handleCronRequest(request: Request, startedBy: "cron" | "w
       db,
       brandId: DEFAULT_BRAND_ID,
       sendEmail: emailSender(env),
-      researchEnabled: researchConfig(env).state === "on",
+      researchMissing: (() => {
+        const config = researchConfig(env);
+        return config.state === "misconfigured" ? config.missing : [];
+      })(),
       alertTo: recipients(env.ACQUISITION_ALERT_EMAIL_TO),
       pingMonitor: monitorPinger(env.ACQUISITION_MONITOR_URL),
     },

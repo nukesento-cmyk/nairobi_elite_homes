@@ -1,6 +1,6 @@
 # Morning acquisition job
 
-Every morning this job runs on Vercel and puts a report on the SuperAdmin's dashboard at `/admin`, under Acquisition. There the SuperAdmin chooses who gets it by email, and can send any report to any address. Nothing runs on anyone's computer, so laptops can be off. Research stays off until `ACQUISITION_RESEARCH_ENABLED` is `on`. Until then every report is labelled as a test, with no real leads. See "Research" below.
+Every morning this job runs on Vercel and puts a report on the SuperAdmin's dashboard at `/admin`, under Acquisition. There the SuperAdmin chooses who gets it by email, and can send any report to any address. Nothing runs on anyone's computer, so laptops can be off. The SuperAdmin switches research on and off under Acquisition, with no deploy. While it's off, every report is labelled as a test, with no real leads. See "Research" below.
 
 Code is in `apps/web/src/lib/acquisition`, routes are under `apps/web/src/app/api/cron`, and tables start with `acq_` in `apps/web/db/schema.sql`.
 
@@ -21,11 +21,13 @@ Research runs in three slots before the report, each within one function's 300-s
 
 Each slot searches the web, then reads pages only from domains a person has allowed. Claude reads each page and returns structured facts, with no database or email tools. Code then checks every quote, name, price and contact against the stored page text. Anything not on the page is dropped.
 
-**To switch it on:**
+**To run it:**
 
-1. Set `ANTHROPIC_API_KEY`, and `ACQUISITION_HASH_KEY` to a random value of 32 or more characters. Never change the hash key afterwards, or opt-outs stop matching.
+1. Set `ANTHROPIC_API_KEY`, and `ACQUISITION_HASH_KEY` to a random value of 32 or more characters, then deploy. Never change the hash key afterwards, or opt-outs stop matching.
 2. Optionally set `ACQUISITION_DAILY_SPEND_USD`. The default cap is 3 dollars a day across search and Claude.
-3. Set `ACQUISITION_RESEARCH_ENABLED` to `on`, then deploy.
+3. Sign in as the SuperAdmin and use the switch under Acquisition.
+
+**Switching off** stops new runs at once, and a run in progress stops at its next page. It needs no deploy, and leads already found stay on the dashboard. Each change goes in the audit log.
 
 **Every morning after that, the SuperAdmin:**
 

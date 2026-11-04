@@ -25,18 +25,16 @@ export function missingConfig(env: Record<string, string | undefined>): string[]
 const DEFAULT_DAILY_SPEND_USD = 3;
 
 export type ResearchConfig =
-  | { state: "off" }
   | { state: "misconfigured"; missing: string[] }
-  | { state: "on"; apiKey: string; hashKey: string; dailySpendCapUsd: number };
+  | { state: "ready"; apiKey: string; hashKey: string; dailySpendCapUsd: number };
 
-/** Research runs only when deliberately switched on. Switched on with parts missing, it refuses. */
+/** What research needs to run. Whether it should run is the SuperAdmin's switch in the database. */
 export function researchConfig(env: Record<string, string | undefined>): ResearchConfig {
-  if (env.ACQUISITION_RESEARCH_ENABLED !== "on") return { state: "off" };
   const missing = ["ANTHROPIC_API_KEY", "ACQUISITION_HASH_KEY"].filter((name) => !env[name]);
   if (missing.length > 0) return { state: "misconfigured", missing };
   const cap = Number(env.ACQUISITION_DAILY_SPEND_USD);
   return {
-    state: "on",
+    state: "ready",
     apiKey: env.ANTHROPIC_API_KEY!,
     hashKey: env.ACQUISITION_HASH_KEY!,
     dailySpendCapUsd: Number.isFinite(cap) && cap > 0 ? cap : DEFAULT_DAILY_SPEND_USD,

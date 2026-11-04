@@ -9,6 +9,7 @@ import {
   rejectLeadAction,
   removeRecipientAction,
   sendReportAction,
+  setResearchAction,
 } from "@/app/admin/acquisition-actions";
 
 import { Result, fieldClass, labelClass, secondaryButton } from "./AdminForms";
@@ -36,6 +37,19 @@ export function RemoveRecipientForm({ id, email }: { id: string; email: string }
       <input type="hidden" name="id" value={id} />
       <button type="submit" disabled={pending} aria-label={`Remove ${email}`} className="text-sm text-copper-400 underline underline-offset-4">
         Remove
+      </button>
+      <Result state={state} />
+    </form>
+  );
+}
+
+export function ResearchSwitchForm({ on }: { on: boolean }) {
+  const [state, action, pending] = useActionState(setResearchAction, {});
+  return (
+    <form action={action}>
+      <input type="hidden" name="enabled" value={on ? "off" : "on"} />
+      <button type="submit" disabled={pending} className={secondaryButton}>
+        {on ? "Switch research off" : "Switch research on"}
       </button>
       <Result state={state} />
     </form>

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { emailSender } from "@/lib/acquisition/cron";
-import { addRecipient, approveLead, decideDomain, rejectLead, removeRecipient, sendReportTo } from "@/lib/acquisition/dashboard";
+import { addRecipient, approveLead, decideDomain, rejectLead, removeRecipient, sendReportTo, setResearchEnabled } from "@/lib/acquisition/dashboard";
 import { AdminError } from "@/lib/admin/accounts";
 import { requireAdmin } from "@/lib/admin/guard";
 import { db } from "@/lib/admin/session";
@@ -33,6 +33,14 @@ export async function removeRecipientAction(_: ActionState, form: FormData): Pro
   return run(async () => {
     await removeRecipient(db, await requireAdmin(), DEFAULT_BRAND_ID, String(form.get("id")));
     return { message: "Removed." };
+  });
+}
+
+export async function setResearchAction(_: ActionState, form: FormData): Promise<ActionState> {
+  return run(async () => {
+    const enabled = form.get("enabled") === "on";
+    await setResearchEnabled(db, await requireAdmin(), DEFAULT_BRAND_ID, enabled);
+    return { message: enabled ? "Research is on." : "Research is off. Any run in progress stops at its next page." };
   });
 }
 

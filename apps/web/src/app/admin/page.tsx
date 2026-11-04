@@ -39,6 +39,7 @@ import {
 import { accessRequestStats, listAccessRequests } from "@/lib/access-requests";
 import { emailSender, researchConfig } from "@/lib/acquisition/cron";
 import { listLeads, listPendingDomains, listRecipients, listReports } from "@/lib/acquisition/dashboard";
+import { isResearchEnabled } from "@/lib/acquisition/settings";
 import { DEFAULT_BRAND_ID, listBrands, type Brand } from "@/lib/brands";
 import { brandOrigin } from "@/lib/brand-site";
 import { listUsers } from "@/lib/buyers";
@@ -112,6 +113,8 @@ async function Dashboard() {
     canManageGroups(me) ? listWhatsAppGroups(db, me) : [],
   ]);
 
+  const researchSettings = researchConfig(process.env);
+  const researchOn = isSuperadmin && (await isResearchEnabled(db, DEFAULT_BRAND_ID));
   const [acquisitionReports, reportRecipients, pendingDomains, acquisitionLeads] = isSuperadmin
     ? await Promise.all([
         listReports(db, me, DEFAULT_BRAND_ID),
@@ -160,7 +163,8 @@ async function Dashboard() {
           reports={acquisitionReports}
           recipients={reportRecipients}
           emailReady={emailSender(process.env) !== null}
-          researchOn={researchConfig(process.env).state === "on"}
+          researchOn={researchOn}
+          researchMissing={researchSettings.state === "misconfigured" ? researchSettings.missing : []}
           domains={pendingDomains}
           leads={acquisitionLeads}
         />

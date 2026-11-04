@@ -47,7 +47,7 @@ export function buildDailyReport(input: DailyReportInput): Report {
   const subject = `${input.isTest ? "[TEST, no real leads] " : ""}Daily Acquisition Report: ${date}`;
   const failed = input.checks.filter((check) => !check.ok);
   const summary = input.isTest
-    ? "Research is not switched on yet. This run proves the morning job and its delivery work. Real leads today: 0."
+    ? "Research is switched off. This run proves the morning job and its delivery work. Real leads today: 0."
     : input.realLeadCount === 0
       ? "No leads qualified today. The figures below show why."
       : `${input.realLeadCount} ${input.realLeadCount === 1 ? "lead is" : "leads are"} awaiting approval on the dashboard, against a target of 20 to 30.`;

@@ -7,6 +7,7 @@ import { AcquisitionPanel } from "./AcquisitionPanel";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/app/admin/acquisition-actions", () => ({
+  setResearchAction: vi.fn(),
   decideDomainAction: vi.fn(),
   approveLeadAction: vi.fn(),
   rejectLeadAction: vi.fn(),
@@ -26,7 +27,7 @@ describe("AcquisitionPanel", () => {
   it("shows each report in a sandbox, with how it went", () => {
     const { container } = render(
       <AcquisitionPanel
-        researchOn={false}
+        researchOn={false} researchMissing={[]}
         domains={[]}
         leads={[]}
         recipients={[]}
@@ -48,16 +49,26 @@ describe("AcquisitionPanel", () => {
   });
 
   it("offers sending only once email works, and says so when it doesn't", () => {
-    const { rerender } = render(<AcquisitionPanel researchOn={false} domains={[]} leads={[]} recipients={[]} emailReady={false} reports={[run({})]} />);
+    const { rerender } = render(<AcquisitionPanel researchOn={false} researchMissing={[]} domains={[]} leads={[]} recipients={[]} emailReady={false} reports={[run({})]} />);
     expect(screen.getByText(/Email isn.t set up yet/)).toBeTruthy();
     expect(screen.queryByLabelText("Send this report to")).toBeNull();
-    rerender(<AcquisitionPanel researchOn={false} domains={[]} leads={[]} recipients={[{ id: "a", email: "team@example.com" }]} emailReady reports={[run({})]} />);
+    rerender(<AcquisitionPanel researchOn={false} researchMissing={[]} domains={[]} leads={[]} recipients={[{ id: "a", email: "team@example.com" }]} emailReady reports={[run({})]} />);
     expect(screen.getByLabelText("Send this report to")).toBeTruthy();
     expect(screen.getByLabelText("Remove team@example.com")).toBeTruthy();
   });
 
+  it("shows the switch, and what's missing when it's on but can't run", () => {
+    const { rerender } = render(<AcquisitionPanel researchOn={false} researchMissing={[]} domains={[]} leads={[]} recipients={[]} emailReady={false} reports={[]} />);
+    expect(screen.getByRole("heading", { name: "Research is off" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Switch research on" })).toBeTruthy();
+    rerender(<AcquisitionPanel researchOn researchMissing={["ANTHROPIC_API_KEY"]} domains={[]} leads={[]} recipients={[]} emailReady={false} reports={[]} />);
+    expect(screen.getByRole("heading", { name: "Research is on" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Switch research off" })).toBeTruthy();
+    expect(screen.getByText(/ANTHROPIC_API_KEY/)).toBeTruthy();
+  });
+
   it("says when there's nothing yet", () => {
-    render(<AcquisitionPanel researchOn={false} domains={[]} leads={[]} recipients={[]} emailReady={false} reports={[]} />);
+    render(<AcquisitionPanel researchOn={false} researchMissing={[]} domains={[]} leads={[]} recipients={[]} emailReady={false} reports={[]} />);
     expect(screen.getByText(/No reports yet/)).toBeTruthy();
     expect(screen.getByText(/Nobody yet/)).toBeTruthy();
   });

@@ -448,6 +448,17 @@ CREATE TABLE IF NOT EXISTS acq_report_recipients (
   UNIQUE (brand_id, email)
 );
 
+-- The SuperAdmin's on/off switch for research, set on the dashboard. Off until someone turns it on.
+CREATE TABLE IF NOT EXISTS acq_settings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL UNIQUE REFERENCES brands (id) ON DELETE RESTRICT,
+  research_enabled boolean NOT NULL DEFAULT false,
+  updated_by text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO acq_settings (brand_id, updated_by) VALUES ('00000000-0000-4000-8000-000000000001', 'system')
+ON CONFLICT (brand_id) DO NOTHING;
+
 -- Pages discovery found. A page on a domain nobody has approved waits here, unfetched.
 CREATE TABLE IF NOT EXISTS acq_candidates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -527,6 +538,8 @@ CREATE OR REPLACE TRIGGER acq_campaigns_audit AFTER INSERT OR UPDATE OR DELETE O
 CREATE OR REPLACE TRIGGER acq_onboarding_audit AFTER INSERT OR UPDATE OR DELETE ON acq_onboarding
   FOR EACH ROW EXECUTE FUNCTION acq_write_audit('');
 CREATE OR REPLACE TRIGGER acq_report_recipients_audit AFTER INSERT OR UPDATE OR DELETE ON acq_report_recipients
+  FOR EACH ROW EXECUTE FUNCTION acq_write_audit('');
+CREATE OR REPLACE TRIGGER acq_settings_audit AFTER INSERT OR UPDATE OR DELETE ON acq_settings
   FOR EACH ROW EXECUTE FUNCTION acq_write_audit('');
 
 -- Every status change goes through here.

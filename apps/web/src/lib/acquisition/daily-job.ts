@@ -6,6 +6,7 @@ import { checkHostPolicy } from "./policy";
 import { buildDailyReport, type Report, type ReportLead } from "./report";
 import { nairobiDate, runJob, type RunResult, type Step } from "./runner";
 import { SAMPLE_LEADS } from "./sample-leads";
+import { isResearchEnabled } from "./settings";
 
 export const DAILY_JOB = "daily-acquisition";
 
@@ -17,8 +18,8 @@ export type DailyJobDeps = {
   brandId: string;
   /** Null until email is set up. The report still appears on the SuperAdmin's dashboard. */
   sendEmail: SendEmail | null;
-  /** Off means a labelled test report. On means today's real research, however little it found. */
-  researchEnabled?: boolean;
+  /** Settings research still needs. With any missing, switching it on can't do anything yet. */
+  researchMissing?: string[];
   /** Extra addresses for failure alerts, used even if the database is what's down. */
   alertTo?: string[];
   /** Tells the outside monitor the report is ready. Optional until the monitor is set up. */
@@ -120,14 +121,27 @@ export async function runDailyJob(deps: DailyJobDeps, startedBy: "cron" | "watch
   const steps: Step[] = [
     {
       name: "self_check",
-      run: async () => ({ checks: await runSafetyChecks(deps.db, deps.brandId) }),
+      run: async () => {
+        const researchOn = await isResearchEnabled(deps.db, deps.brandId);
+        const missing = deps.researchMissing ?? [];
+        const research: Check = {
+          name: "Research",
+          ok: !researchOn || missing.length === 0,
+          detail: !researchOn
+            ? "Switched off on the dashboard."
+            : missing.length > 0
+              ? `Switched on, but can't run until these are set: ${missing.join(", ")}.`
+              : "Switched on.",
+        };
+        return { researchOn, checks: [...(await runSafetyChecks(deps.db, deps.brandId)), research] };
+      },
     },
     {
       // Once this step is done the report is on the dashboard, whatever happens to email.
       name: "report",
       run: async (outputs) => {
-        const { checks } = outputs.self_check as { checks: Check[] };
-        if (!deps.researchEnabled) {
+        const { checks, researchOn } = outputs.self_check as { checks: Check[]; researchOn: boolean };
+        if (!researchOn) {
           return buildDailyReport({ runDate, isTest: true, startedAt: now(), realLeadCount: 0, leads: SAMPLE_LEADS, checks });
         }
         const { leads, count, funnel } = await loadTodaysResearch(deps.db, deps.brandId, runDate);

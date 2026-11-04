@@ -65,6 +65,15 @@ export async function removeRecipient(db: Db, actor: Admin, brandId: string, id:
   await db.query(`DELETE FROM acq_report_recipients WHERE id = $1 AND brand_id = $2`, [id, brandId]);
 }
 
+export async function setResearchEnabled(db: Db, actor: Admin, brandId: string, enabled: boolean): Promise<void> {
+  requireSuperadmin(actor);
+  await db.query(
+    `INSERT INTO acq_settings (brand_id, research_enabled, updated_by) VALUES ($1, $2, $3)
+     ON CONFLICT (brand_id) DO UPDATE SET research_enabled = EXCLUDED.research_enabled, updated_by = EXCLUDED.updated_by, updated_at = now()`,
+    [brandId, enabled, actor.id],
+  );
+}
+
 export type PendingDomain = { id: string; domain: string; pages: number; exampleUrl: string | null; exampleTitle: string | null };
 
 /** Domains discovery found. Nothing is read from one until a person has looked at its terms. */

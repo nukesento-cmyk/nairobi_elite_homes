@@ -9,7 +9,7 @@ import type { Admin, Db } from "@/lib/admin/accounts";
 import type { Researcher, SearchResult } from "./ai";
 import { researchConfig } from "./cron";
 import { runDailyJob } from "./daily-job";
-import { approveLead, decideDomain, listLeads, listPendingDomains, rejectLead } from "./dashboard";
+import { approveLead, decideDomain, listLeads, listPendingDomains, rejectLead, setResearchEnabled } from "./dashboard";
 import { canonicalUrl, hashContact, queriesFor, runResearchSlot } from "./research";
 import { chooseCampaign, OPT_OUT_LINE, openingScript, scoreLead } from "./score";
 import { normalisePhone, verifyExtraction, type Extraction, type VerifiedLead } from "./verify";
@@ -62,7 +62,8 @@ beforeAll(async () => {
 beforeEach(async () => {
   await pg.exec(`TRUNCATE acq_runs, acq_prospects, acq_source_records, acq_suppression, acq_candidates, acq_report_recipients CASCADE;
     DELETE FROM acq_source_policies WHERE verdict IN ('pending', 'allowed');
-    UPDATE acq_contact_class_rules SET callable = (contact_class = 'owner_submitted');`);
+    UPDATE acq_contact_class_rules SET callable = (contact_class = 'owner_submitted');
+    UPDATE acq_settings SET research_enabled = true;`);
 });
 
 const allow = (domain: string) => db.query(`INSERT INTO acq_source_policies (brand_id, domain, verdict) VALUES ($1, $2, 'allowed')`, [BRAND, domain]);
@@ -210,12 +211,11 @@ describe("helpers", () => {
     expect(queriesFor(TODAY, 1).join()).not.toContain("{area}");
   });
 
-  it("keeps research off unless it's deliberately on and complete", () => {
-    expect(researchConfig({}).state).toBe("off");
-    expect(researchConfig({ ACQUISITION_RESEARCH_ENABLED: "true", ANTHROPIC_API_KEY: "k", ACQUISITION_HASH_KEY: "h" }).state).toBe("off");
-    expect(researchConfig({ ACQUISITION_RESEARCH_ENABLED: "on" })).toEqual({ state: "misconfigured", missing: ["ANTHROPIC_API_KEY", "ACQUISITION_HASH_KEY"] });
-    expect(researchConfig({ ACQUISITION_RESEARCH_ENABLED: "on", ANTHROPIC_API_KEY: "k", ACQUISITION_HASH_KEY: "h" })).toMatchObject({ state: "on", dailySpendCapUsd: 3 });
-    expect(researchConfig({ ACQUISITION_RESEARCH_ENABLED: "on", ANTHROPIC_API_KEY: "k", ACQUISITION_HASH_KEY: "h", ACQUISITION_DAILY_SPEND_USD: "-1" })).toMatchObject({ dailySpendCapUsd: 3 });
+  it("says what research still needs, and caps spending", () => {
+    expect(researchConfig({})).toEqual({ state: "misconfigured", missing: ["ANTHROPIC_API_KEY", "ACQUISITION_HASH_KEY"] });
+    expect(researchConfig({ ANTHROPIC_API_KEY: "k", ACQUISITION_HASH_KEY: "h" })).toMatchObject({ state: "ready", dailySpendCapUsd: 3 });
+    expect(researchConfig({ ANTHROPIC_API_KEY: "k", ACQUISITION_HASH_KEY: "h", ACQUISITION_DAILY_SPEND_USD: "-1" })).toMatchObject({ dailySpendCapUsd: 3 });
+    expect(researchConfig({ ANTHROPIC_API_KEY: "k", ACQUISITION_HASH_KEY: "h", ACQUISITION_DAILY_SPEND_USD: "10" })).toMatchObject({ dailySpendCapUsd: 10 });
   });
 });
 
@@ -367,6 +367,85 @@ describe("a research slot", () => {
   });
 });
 
+describe("the SuperAdmin's switch", () => {
+  const url = "https://sampleheights.example/project";
+  const off = () => db.query(`UPDATE acq_settings SET research_enabled = false`);
+
+  it("starts off on a fresh database", async () => {
+    const fresh = new PGlite();
+    await fresh.exec(schema);
+    const { rows } = await fresh.query<{ research_enabled: boolean }>(`SELECT research_enabled FROM acq_settings`);
+    expect(rows).toEqual([{ research_enabled: false }]);
+    await fresh.close();
+  });
+
+  it("stays as the SuperAdmin left it when the schema is applied again", async () => {
+    await pg.exec(schema);
+    expect((await one<{ research_enabled: boolean }>(`SELECT research_enabled FROM acq_settings`)).research_enabled).toBe(true);
+  });
+
+  it("does nothing and spends nothing while off, and leaves today's slot free", async () => {
+    await off();
+    const ai = researcher([{ url, title: "x" }]);
+    expect(await runResearchSlot(deps(ai), 1)).toEqual({ status: "off" });
+    expect(ai.searches).toEqual([]);
+    expect(await db.query(`SELECT 1 FROM acq_runs`)).toEqual([]);
+    await db.query(`UPDATE acq_settings SET research_enabled = true`);
+    expect((await runResearchSlot(deps(ai), 1)).status).toBe("completed");
+  });
+
+  it("counts a missing setting as off", async () => {
+    await pg.exec(`DELETE FROM acq_settings`);
+    const ai = researcher([]);
+    expect(await runResearchSlot(deps(ai), 1)).toEqual({ status: "off" });
+    await db.query(`INSERT INTO acq_settings (brand_id, research_enabled) VALUES ($1, true)`, [BRAND]);
+  });
+
+  it("stops a run part way when switched off between pages", async () => {
+    await allow("a.example");
+    await allow("b.example");
+    const first = "https://a.example/p";
+    const second = "https://b.example/p";
+    await db.query(`INSERT INTO acq_candidates (brand_id, url, domain) VALUES ($1, $2, 'a.example'), ($1, $3, 'b.example')`, [BRAND, first, second]);
+    const ai = researcher([]);
+    const realExtract = ai.extract;
+    ai.extract = async (page, text) => { await off(); return realExtract(page, text); };
+    await runResearchSlot(deps(ai, { [first]: developerPage, [second]: developerPage }), 1);
+    expect(ai.extracted).toHaveLength(1);
+    expect(await db.query(`SELECT 1 FROM acq_candidates WHERE status = 'queued'`)).toHaveLength(1);
+  });
+
+  it("sends a labelled test report while off, keeping leads already found", async () => {
+    await allow("sampleheights.example");
+    await runResearchSlot(deps(researcher([{ url, title: "x" }], { [url]: good }), { [url]: developerPage }, { now: () => new Date() }), 1);
+    await off();
+    let email = { subject: "", text: "" };
+    await db.query(`INSERT INTO acq_report_recipients (brand_id, email) VALUES ($1, 'team@example.com')`, [BRAND]);
+    await runDailyJob({ db, brandId: BRAND, sendEmail: async (sent) => { email = sent; } }, "cron");
+    expect(email.subject).toContain("[TEST, no real leads]");
+    expect(email.text).toContain("OK     Research: Switched off");
+    expect(await db.query(`SELECT 1 FROM acq_prospects`)).toHaveLength(1);
+  });
+
+  it("flags in the report when it's on but can't run", async () => {
+    let text = "";
+    await db.query(`INSERT INTO acq_report_recipients (brand_id, email) VALUES ($1, 'team@example.com')`, [BRAND]);
+    await runDailyJob({ db, brandId: BRAND, researchMissing: ["ANTHROPIC_API_KEY"], sendEmail: async (sent) => { text = sent.text; } }, "cron");
+    expect(text).toContain("FAILED Research: Switched on, but can't run until these are set: ANTHROPIC_API_KEY.");
+  });
+
+  it("only the SuperAdmin can flip it, and each change is audited", async () => {
+    const [{ id }] = await db.query<{ id: string }>(`INSERT INTO admins (email, name, role, password_hash) VALUES ('switch@example.com', 'S', 'superadmin', 'x') ON CONFLICT (role) WHERE role = 'superadmin' DO UPDATE SET name = EXCLUDED.name RETURNING id`);
+    const superadmin = { id, role: "superadmin" } as Admin;
+    await expect(setResearchEnabled(db, { ...superadmin, role: "admin" }, BRAND, false)).rejects.toThrow("Only the SuperAdmin");
+    await setResearchEnabled(db, superadmin, BRAND, false);
+    expect((await runResearchSlot(deps(researcher([])), 1))).toEqual({ status: "off" });
+    await setResearchEnabled(db, superadmin, BRAND, true);
+    const audit = await db.query<{ actor: string; after: { research_enabled: boolean } }>(`SELECT actor, after FROM acq_audit_log WHERE table_name = 'acq_settings' AND actor = $1 ORDER BY id`, [id]);
+    expect(audit.map((row) => row.after.research_enabled)).toEqual([false, true]);
+  });
+});
+
 describe("the morning report with research on", () => {
   const url = "https://sampleheights.example/project";
   // The real clock, because the rows' timestamps come from the database's.
@@ -378,7 +457,7 @@ describe("the morning report with research on", () => {
 
     let sent = { subject: "", text: "", html: "" };
     await db.query(`INSERT INTO acq_report_recipients (brand_id, email) VALUES ($1, 'team@example.com')`, [BRAND]);
-    await runDailyJob({ db, brandId: BRAND, now: reportNow, researchEnabled: true, sendEmail: async (email) => { sent = email; } }, "cron");
+    await runDailyJob({ db, brandId: BRAND, now: reportNow, sendEmail: async (email) => { sent = email; } }, "cron");
 
     expect(sent.subject).toMatch(/^Daily Acquisition Report: /);
     expect(sent.text).toContain("Sample Heights Developers Ltd");
@@ -393,7 +472,7 @@ describe("the morning report with research on", () => {
   it("reports zero honestly rather than padding", async () => {
     let text = "";
     await db.query(`INSERT INTO acq_report_recipients (brand_id, email) VALUES ($1, 'team@example.com')`, [BRAND]);
-    await runDailyJob({ db, brandId: BRAND, now: reportNow, researchEnabled: true, sendEmail: async (email) => { text = email.text; } }, "cron");
+    await runDailyJob({ db, brandId: BRAND, now: reportNow, sendEmail: async (email) => { text = email.text; } }, "cron");
     expect(text).toContain("No leads qualified today");
     expect(text).not.toContain("Sample Heights");
   });
@@ -405,7 +484,7 @@ describe("the SuperAdmin's decisions", () => {
   const url = "https://sampleheights.example/project";
 
   beforeAll(async () => {
-    superadmin.id = (await one<{ id: string }>(`INSERT INTO admins (email, name, role, password_hash) VALUES ('s@example.com', 'S', 'superadmin', 'x') RETURNING id`)).id;
+    superadmin.id = (await one<{ id: string }>(`INSERT INTO admins (email, name, role, password_hash) VALUES ('s@example.com', 'S', 'superadmin', 'x') ON CONFLICT (role) WHERE role = 'superadmin' DO UPDATE SET name = EXCLUDED.name RETURNING id`)).id;
   });
 
   const aLead = async () => {

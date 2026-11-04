@@ -7,6 +7,7 @@ import { fetchPage } from "./fetcher";
 import { checkSourcePolicy, publicHost } from "./policy";
 import { nairobiDate, runJob, type RunResult } from "./runner";
 import { chooseCampaign, openingScript, PRIORITY_AREAS, scoreLead } from "./score";
+import { isResearchEnabled } from "./settings";
 import { verifyExtraction, type VerifiedLead } from "./verify";
 
 /** Stops discovery and research for the day at this many qualified leads, per the brief. */
@@ -157,8 +158,11 @@ export async function saveLead(deps: Pick<ResearchDeps, "db" | "brandId" | "hash
  * One research slot: finds pages, then reads as many approved ones as time and money allow.
  * The cron runs several slots before the report. Unread pages simply wait for the next one.
  */
-export async function runResearchSlot(deps: ResearchDeps, slot: number): Promise<RunResult> {
+export async function runResearchSlot(deps: ResearchDeps, slot: number): Promise<RunResult | { status: "off" }> {
   const { db, brandId, researcher } = deps;
+  // Off leaves no record of a run, so switching back on the same day can still use this slot.
+  if (!(await isResearchEnabled(db, brandId))) return { status: "off" };
+
   const now = deps.now ?? (() => new Date());
   const runDate = nairobiDate(now());
   const job = `research-slot-${slot}`;
@@ -190,6 +194,7 @@ export async function runResearchSlot(deps: ResearchDeps, slot: number): Promise
         let dropped = 0;
         let added = 0;
         for (const query of queriesFor(runDate, slot)) {
+          if (!(await isResearchEnabled(db, brandId))) return { found, dropped, added, stopped: "switched_off" };
           if (!(await canSpend())) return { found, dropped, added, stopped: "spend_cap" };
           const { results, costUsd } = await researcher.search(query, blocked);
           await addSpend(costUsd);
@@ -224,6 +229,8 @@ export async function runResearchSlot(deps: ResearchDeps, slot: number): Promise
         );
 
         for (const candidate of queue) {
+          // Checked for every page, so switching off takes effect part way through a run.
+          if (!(await isResearchEnabled(db, brandId))) return { ...counts, stopped: "switched_off" };
           if (now().getTime() - started > deps.timeBudgetMs) return { ...counts, stopped: "time" };
           if (!(await canSpend())) return { ...counts, stopped: "spend_cap" };
           if (await qualifiedToday(db, brandId, runDate) >= DAILY_LEAD_CAP) return { ...counts, stopped: "daily_cap" };
