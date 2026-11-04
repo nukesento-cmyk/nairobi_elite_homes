@@ -30,7 +30,7 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
 const words = (value: string) => value.replace(/_/g, " ");
 const outcomeLabel = (value: string) => CALL_OUTCOMES.find((item) => item.value === value)?.label ?? value;
 
-function LeadCard({ lead }: { lead: LeadRow }) {
+function LeadCard({ lead, callerView }: { lead: LeadRow; callerView: boolean }) {
   const status = STATUS[lead.status] ?? { label: words(lead.status), tone: "neutral" as const };
   const quotes = lead.evidence.slice(0, 2);
   return (
@@ -85,7 +85,7 @@ function LeadCard({ lead }: { lead: LeadRow }) {
         </ul>
       )}
 
-      {lead.possibleDuplicates.length > 0 && (
+      {!callerView && lead.possibleDuplicates.length > 0 && (
         <div className="mt-4">
           <Callout>
             <p>Possible duplicate of: {lead.possibleDuplicates.map((match) => `${match.name} (${match.reason.toLowerCase()})`).join("; ")}. Check before approving. If it&apos;s really the same one, reject this lead.</p>
@@ -95,7 +95,7 @@ function LeadCard({ lead }: { lead: LeadRow }) {
       )}
 
       {lead.status === "researched" && <LeadDecisionForms id={lead.id} name={lead.name} />}
-      {["interested", "meeting_scheduled", "negotiating"].includes(lead.status) && (
+      {!callerView && ["interested", "meeting_scheduled", "negotiating"].includes(lead.status) && (
         <div className="mt-4"><StartOnboardingButton id={lead.id} /></div>
       )}
 
@@ -137,7 +137,7 @@ function LeadCard({ lead }: { lead: LeadRow }) {
             )}
           </div>
         </details>
-        {lead.status === "follow_up" && (
+        {!callerView && lead.status === "follow_up" && (
           <details>
             <summary>Start onboarding</summary>
             <div className="mt-2 mb-2">
@@ -155,18 +155,23 @@ function LeadCard({ lead }: { lead: LeadRow }) {
   );
 }
 
-export function LeadsView({ leads }: { leads: LeadRow[] }) {
+export function LeadsView({ leads, callerView = false }: { leads: LeadRow[]; callerView?: boolean }) {
   return (
     <section aria-label="Leads">
-      <PageHeader title="Leads" description="People and companies worth calling. Approve a lead to put it on the call list, then log each call." />
+      <PageHeader
+        title={callerView ? "Call list" : "Leads"}
+        description={callerView ? "Tell each person they can opt out, then log how the call went." : "People and companies worth calling. Approve a lead to put it on the call list, then log each call."}
+      />
       {leads.length === 0 ? (
-        <EmptyState title="No leads yet">They appear here when an owner submits the form, or when research finds a company.</EmptyState>
+        <EmptyState title={callerView ? "Nobody to call yet" : "No leads yet"}>
+          {callerView ? "Leads appear here once they've been approved." : "They appear here when an owner submits the form, or when research finds a company."}
+        </EmptyState>
       ) : (
         <LeadFilter
           items={leads.map((lead) => ({
             key: lead.id,
             group: lead.followUpDue ? "due" : lead.status === "researched" ? "approval" : lead.status === "ready_to_call" ? "call" : "active",
-            node: <LeadCard lead={lead} />,
+            node: <LeadCard lead={lead} callerView={callerView} />,
           }))}
         />
       )}

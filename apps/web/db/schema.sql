@@ -706,3 +706,7 @@ INSERT INTO acq_contact_class_rules (brand_id, contact_class, callable, notes, u
   ('00000000-0000-4000-8000-000000000001', 'named_business_role', false, 'Awaiting advocate opinion.', 'system'),
   ('00000000-0000-4000-8000-000000000001', 'individual_published', false, 'Locked pending advocate opinion.', 'system')
 ON CONFLICT (brand_id, contact_class) DO NOTHING;
+
+-- Callers work the call list and nothing else.
+ALTER TABLE admins DROP CONSTRAINT IF EXISTS admins_role_check;
+ALTER TABLE admins ADD CONSTRAINT admins_role_check CHECK (role IN ('superadmin', 'admin', 'reviewer', 'caller'));

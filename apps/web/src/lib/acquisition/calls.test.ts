@@ -4,11 +4,19 @@ import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Admin, Db } from "@/lib/admin/accounts";
+import {
+  authenticate, canManage, canManageGroups, canManageProperties, canManageUsers, canRemoveContent, canReview, canWritePosts, createAdmin, manageableRoles,
+  type Admin, type Db,
+} from "@/lib/admin/accounts";
+import { hashPassword } from "@/lib/admin/password";
+import { authenticateBuyer, createUser } from "@/lib/buyers";
 
 import { logCall, markDoNotContact, suppressContact } from "./calls";
 import { runDailyJob } from "./daily-job";
-import { approveLead, clearPossibleDuplicates, countDoNotContact, listLeads } from "./dashboard";
+import {
+  addRecipient, approveLead, clearPossibleDuplicates, countDoNotContact, decideDomain, listLeads, listPendingDomains, listRecipients, listReports, rejectLead, setResearchEnabled,
+} from "./dashboard";
+import { listOnboarding, readDocument, startOnboarding } from "./onboarding";
 import { ownerSubmissionSchema } from "./owner-form";
 import { saveOwnerSubmission } from "./owner-submission";
 import { hashContact } from "./research";
@@ -259,12 +267,111 @@ describe("possible duplicates", () => {
   });
 });
 
+describe("a caller", () => {
+  let caller: Admin;
+  beforeAll(async () => {
+    const row = await one<{ id: string }>(`INSERT INTO admins (email, name, role, password_hash, brand_id, must_change_password) VALUES ('caller@example.com', 'C', 'caller', 'x', $1, false) RETURNING id`, [BRAND]);
+    caller = { id: row.id, role: "caller", brandId: BRAND } as Admin;
+  });
+  const logged = (id: string, over: object = {}) =>
+    logCall(db, caller, BRAND, id, { outcome: "interested", notes: "From a caller.", optOutLineRead: true, nextFollowUp: "", ...over }, TODAY);
+
+  it("sees approved leads only, and logs calls as themselves", async () => {
+    await newLead(false, "0712 000 031");
+    const approved = await newLead(true, "0712 000 032");
+    expect((await listLeads(db, caller, BRAND)).map((lead) => lead.id)).toEqual([approved]);
+    await logged(approved);
+    expect((await one<{ caller_id: string }>(`SELECT caller_id FROM acq_interactions`)).caller_id).toBe(caller.id);
+    expect(await status(approved)).toBe("interested");
+  });
+
+  it("never gets a locked contact, even on an approved lead", async () => {
+    const id = await newLead(true, "0712 000 033");
+    await db.query(`UPDATE acq_contacts SET contact_class = 'individual_published' WHERE normalised_value LIKE 'j%' AND prospect_id = $1`, [id]);
+    const values = (await listLeads(db, caller, BRAND))[0].contacts.map((contact) => contact.value);
+    expect(values).toEqual(["+254712000033"]);
+    expect((await listLeads(db, me, BRAND))[0].contacts).toHaveLength(2);
+  });
+
+  it("sees no other brand's leads", async () => {
+    await newLead(true, "0712 000 034");
+    const other = { ...caller, brandId: "00000000-0000-4000-8000-0000000000bb" } as Admin;
+    await expect(listLeads(db, other, BRAND)).rejects.toThrow("access to leads");
+    const [{ id: brand }] = await db.query<{ id: string }>(`INSERT INTO brands (name, slug) VALUES ('Other', 'other') RETURNING id`);
+    expect(await listLeads(db, me, brand)).toEqual([]);
+    await pg.exec(`DELETE FROM brands WHERE slug = 'other'`);
+  });
+
+  it("can record opt-outs, on a lead or for anyone else", async () => {
+    const id = await newLead(true, "0712 000 035");
+    await markDoNotContact(db, caller, BRAND, id);
+    expect(await status(id)).toBe("do_not_contact");
+    await suppressContact(db, caller, BRAND, KEY, "0722 333 444");
+    expect(await countDoNotContact(db, caller)).toBeGreaterThan(0);
+  });
+
+  it("can do nothing else in acquisition", async () => {
+    const id = await newLead(false, "0712 000 036");
+    const refused = "Only the SuperAdmin";
+    await expect(approveLead(db, caller, BRAND, id)).rejects.toThrow(refused);
+    await expect(rejectLead(db, caller, BRAND, id)).rejects.toThrow(refused);
+    await expect(clearPossibleDuplicates(db, caller, BRAND, id)).rejects.toThrow(refused);
+    await expect(listReports(db, caller, BRAND)).rejects.toThrow(refused);
+    await expect(listRecipients(db, caller, BRAND)).rejects.toThrow(refused);
+    await expect(addRecipient(db, caller, BRAND, "x@example.com")).rejects.toThrow(refused);
+    await expect(listPendingDomains(db, caller, BRAND)).rejects.toThrow(refused);
+    await expect(decideDomain(db, caller, BRAND, id, "allowed", "")).rejects.toThrow(refused);
+    await expect(setResearchEnabled(db, caller, BRAND, true)).rejects.toThrow(refused);
+    await expect(startOnboarding(db, caller, BRAND, id)).rejects.toThrow(refused);
+    await expect(listOnboarding(db, caller, BRAND)).rejects.toThrow(refused);
+    await expect(readDocument({ db, key: "k", store: { put: async () => "", get: async () => null, del: async () => {} } }, caller, BRAND, id)).rejects.toThrow(refused);
+  });
+
+  it("holds no other staff permission", () => {
+    expect(canReview(caller)).toBe(false);
+    expect(canManageProperties(caller)).toBe(false);
+    expect(canWritePosts(caller)).toBe(false);
+    expect(canRemoveContent(caller)).toBe(false);
+    expect(canManageUsers(caller)).toBe(false);
+    expect(canManageGroups(caller)).toBe(false);
+    expect(manageableRoles(caller)).toEqual([]);
+  });
+
+  it("can be created by a SuperAdmin or admin, on the main brand only, and starts with a temporary password", async () => {
+    const created = await createAdmin(db, me, { email: "new.caller@example.com", name: "New Caller", role: "caller", brandId: BRAND });
+    expect(created.admin).toMatchObject({ role: "caller", brandId: BRAND, mustChangePassword: true });
+    expect(created.temporaryPassword).toBeTruthy();
+    await expect(createAdmin(db, me, { email: "b@example.com", name: "B Caller", role: "caller", brandId: "00000000-0000-4000-8000-0000000000cc" })).rejects.toThrow("main brand");
+    await expect(createAdmin(db, caller, { email: "c@example.com", name: "C Caller", role: "caller" })).rejects.toThrow("can't create");
+    await expect(createAdmin(db, caller, { email: "d@example.com", name: "D Admin", role: "admin" })).rejects.toThrow("can't create");
+    await pg.exec(`DELETE FROM admins WHERE email = 'new.caller@example.com'`);
+  });
+
+  it("is managed by the brand's admins, like a reviewer, and can't touch anyone", () => {
+    const admin = { id: "a", role: "admin", brandId: BRAND } as Admin;
+    expect(canManage(admin, { role: "caller", brandId: BRAND, createdBy: "someone" })).toBe(true);
+    expect(canManage(caller, { role: "caller", brandId: BRAND, createdBy: caller.id })).toBe(false);
+    expect(canManage(caller, { role: "reviewer", brandId: BRAND, createdBy: caller.id })).toBe(false);
+  });
+
+  it("signs in at the staff login, and a User can't", async () => {
+    const password = "a-local-test-password";
+    await db.query(`UPDATE admins SET password_hash = $1 WHERE id = $2`, [await hashPassword(password), caller.id]);
+    expect((await authenticate(db, { email: "caller@example.com", password })).role).toBe("caller");
+    const user = await createUser(db, me, { email: "visitor@example.com", name: "Site Visitor", brandId: BRAND });
+    await expect(authenticate(db, { email: "visitor@example.com", password: user.temporaryPassword })).rejects.toThrow("don't match");
+    expect((await authenticateBuyer(db, { email: "visitor@example.com", password: user.temporaryPassword })).mustChangePassword).toBe(true);
+    await db.query(`DELETE FROM buyers WHERE email = 'visitor@example.com'`);
+  });
+});
+
 it("keeps every part of this from other roles", async () => {
   const admin = { ...me, role: "admin" } as Admin;
   const id = await newLead();
-  await expect(logCall(db, admin, BRAND, id, { outcome: "answered", notes: "", optOutLineRead: true, nextFollowUp: "" }, TODAY)).rejects.toThrow("Only the SuperAdmin");
-  await expect(markDoNotContact(db, admin, BRAND, id)).rejects.toThrow("Only the SuperAdmin");
-  await expect(suppressContact(db, admin, BRAND, KEY, "0722111222")).rejects.toThrow("Only the SuperAdmin");
-  await expect(countDoNotContact(db, admin)).rejects.toThrow("Only the SuperAdmin");
+  await expect(logCall(db, admin, BRAND, id, { outcome: "answered", notes: "", optOutLineRead: true, nextFollowUp: "" }, TODAY)).rejects.toThrow("access to leads");
+  await expect(markDoNotContact(db, admin, BRAND, id)).rejects.toThrow("access to leads");
+  await expect(suppressContact(db, admin, BRAND, KEY, "0722111222")).rejects.toThrow("access to leads");
+  await expect(countDoNotContact(db, admin)).rejects.toThrow("access to leads");
+  await expect(listLeads(db, admin, BRAND)).rejects.toThrow("access to leads");
   await expect(clearPossibleDuplicates(db, admin, BRAND, id)).rejects.toThrow("Only the SuperAdmin");
 });

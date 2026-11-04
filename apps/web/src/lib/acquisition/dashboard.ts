@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { AdminError, emailSchema, isDuplicate, parse, type Admin, type Db } from "@/lib/admin/accounts";
+import { AdminError, canWorkLeads, emailSchema, isDuplicate, parse, type Admin, type Db } from "@/lib/admin/accounts";
 
 import { DAILY_JOB, type SendEmail } from "./daily-job";
 import type { Report } from "./report";
@@ -122,8 +122,13 @@ export type LeadRow = {
 
 const LEADS_SHOWN = 50;
 
+/**
+ * The SuperAdmin sees every lead. A caller sees only approved ones, and only the contact details
+ * they're allowed to call, so a locked number can't be dialled by mistake.
+ */
 export async function listLeads(db: Db, actor: Admin, brandId: string): Promise<LeadRow[]> {
-  requireSuperadmin(actor);
+  if (!canWorkLeads(actor, brandId)) throw new AdminError("You don't have access to leads.");
+  const isCaller = actor.role === "caller";
   return db.query<LeadRow>(
     `SELECT p.id, p.display_name AS name, p.category, p.campaign, p.status, p.score, p.score_breakdown AS "scoreBreakdown",
        p.owner_rep_class AS role, p.authority_status AS authority, p.opening_script AS script,
@@ -132,7 +137,7 @@ export async function listLeads(db: Db, actor: Admin, brandId: string): Promise<
                  FROM acq_evidence e JOIN acq_source_records s ON s.id = e.source_record_id WHERE e.prospect_id = p.id), '[]') AS evidence,
        COALESCE((SELECT jsonb_agg(jsonb_build_object('kind', c.kind, 'value', c.normalised_value, 'contactClass', c.contact_class, 'callable', r.callable AND c.usable))
                  FROM acq_contacts c JOIN acq_contact_class_rules r ON r.brand_id = c.brand_id AND r.contact_class = c.contact_class
-                 WHERE c.prospect_id = p.id), '[]') AS contacts,
+                 WHERE c.prospect_id = p.id AND (NOT $2::boolean OR (r.callable AND c.usable))), '[]') AS contacts,
        ((p.next_follow_up_at AT TIME ZONE 'UTC') + interval '3 hours')::date::text AS "nextFollowUp",
        COALESCE(p.next_follow_up_at <= now(), false) AS "followUpDue",
        COALESCE((SELECT jsonb_agg(row_to_json(i)) FROM (
@@ -143,10 +148,11 @@ export async function listLeads(db: Db, actor: Admin, brandId: string): Promise<
                  JOIN acq_prospects other ON other.id = CASE WHEN d.prospect_id = p.id THEN d.possible_match_id ELSE d.prospect_id END
                  WHERE d.status = 'open' AND p.id IN (d.prospect_id, d.possible_match_id)), '[]') AS "possibleDuplicates"
      FROM acq_prospects p
-     WHERE p.brand_id = $1 AND p.status IN ('researched', 'ready_to_call', 'contacted', 'interested', 'meeting_scheduled', 'negotiating', 'follow_up')
+     WHERE p.brand_id = $1 AND p.status IN ('ready_to_call', 'contacted', 'interested', 'meeting_scheduled', 'negotiating', 'follow_up')
+       OR (p.brand_id = $1 AND p.status = 'researched' AND NOT $2::boolean)
      ORDER BY COALESCE(p.next_follow_up_at <= now(), false) DESC, p.next_follow_up_at NULLS LAST, p.score DESC NULLS LAST, p.created_at DESC
      LIMIT ${LEADS_SHOWN}`,
-    [brandId],
+    [brandId, isCaller],
   );
 }
 
@@ -161,7 +167,7 @@ export async function clearPossibleDuplicates(db: Db, actor: Admin, brandId: str
 }
 
 export async function countDoNotContact(db: Db, actor: Admin): Promise<number> {
-  requireSuperadmin(actor);
+  if (actor.role !== "superadmin" && actor.role !== "caller") throw new AdminError("You don't have access to leads.");
   const [row] = await db.query<{ count: string }>(`SELECT count(*)::text AS count FROM acq_suppression`);
   return Number(row.count);
 }

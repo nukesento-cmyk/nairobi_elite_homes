@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
@@ -43,6 +44,9 @@ export default function AdminLoginPage({ searchParams }: LoginProps) {
       <Suspense>
         <LoginContent searchParams={searchParams} />
       </Suspense>
+      <p className="mt-6 text-sm text-bone-200">
+        Not on the staff? <Link href="/login" className="text-copper-400 underline underline-offset-4">Sign in to your account here</Link>.
+      </p>
     </main>
   );
 }

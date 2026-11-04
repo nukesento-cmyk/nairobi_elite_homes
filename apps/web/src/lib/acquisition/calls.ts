@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { AdminError, parse, type Admin, type Db } from "@/lib/admin/accounts";
+import { AdminError, canWorkLeads, parse, type Admin, type Db } from "@/lib/admin/accounts";
 
 import { hashContact } from "./research";
 import { normaliseEmail, normalisePhone } from "./verify";
@@ -18,13 +18,13 @@ const callSchema = z.object({
 
 export type CallInput = { outcome: unknown; notes: unknown; optOutLineRead: unknown; nextFollowUp: unknown };
 
-function requireSuperadmin(actor: Admin): void {
-  if (actor.role !== "superadmin") throw new AdminError("Only the SuperAdmin can do that.");
+function requireLeadAccess(actor: Admin, brandId: string): void {
+  if (!canWorkLeads(actor, brandId)) throw new AdminError("You don't have access to leads.");
 }
 
 /** Marks a prospect Do Not Contact. The database suppresses every contact they have in the same step. */
 export async function markDoNotContact(db: Db, actor: Admin, brandId: string, prospectId: string): Promise<void> {
-  requireSuperadmin(actor);
+  requireLeadAccess(actor, brandId);
   await db.query(`UPDATE acq_prospects SET status = 'do_not_contact', next_follow_up_at = NULL, updated_by = $3 WHERE id = $1 AND brand_id = $2`, [prospectId, brandId, actor.id]);
 }
 
@@ -43,7 +43,7 @@ function stageAfter(outcome: string): string | null {
  * takes effect even if something later fails. A call never moves someone backwards.
  */
 export async function logCall(db: Db, actor: Admin, brandId: string, prospectId: string, raw: CallInput, today: string): Promise<string> {
-  requireSuperadmin(actor);
+  requireLeadAccess(actor, brandId);
   const input = parse(callSchema, {
     outcome: raw.outcome,
     notes: String(raw.notes ?? ""),
@@ -116,7 +116,7 @@ export async function logCall(db: Db, actor: Admin, brandId: string, prospectId:
  * or not they're a lead, and any lead holding that contact becomes Do Not Contact.
  */
 export async function suppressContact(db: Db, actor: Admin, brandId: string, hashKey: string | undefined, rawContact: unknown): Promise<void> {
-  requireSuperadmin(actor);
+  requireLeadAccess(actor, brandId);
   if (!hashKey) throw new AdminError("The opt-out list isn't set up: ACQUISITION_HASH_KEY is missing.");
 
   const text = String(rawContact ?? "").trim();

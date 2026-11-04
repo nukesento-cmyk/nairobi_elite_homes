@@ -9,7 +9,7 @@ export type Db = {
   query<Row>(text: string, params?: unknown[]): Promise<Row[]>;
 };
 
-export type AdminRole = "superadmin" | "admin" | "reviewer";
+export type AdminRole = "superadmin" | "admin" | "reviewer" | "caller";
 
 export type Admin = {
   id: string;
@@ -68,7 +68,7 @@ export function brandScope(actor: Pick<Admin, "role" | "brandId">): string | nul
 
 /** The roles this person can create. */
 export function manageableRoles(actor: Pick<Admin, "role">): AdminRole[] {
-  if (actor.role === "superadmin" || actor.role === "admin") return ["admin", "reviewer"];
+  if (actor.role === "superadmin" || actor.role === "admin") return ["admin", "reviewer", "caller"];
   return [];
 }
 
@@ -83,12 +83,23 @@ export function canManage(
   if (target.role === "superadmin") return false;
   if (actor.role === "superadmin") return true;
   if (actor.role !== "admin" || actor.brandId !== target.brandId) return false;
-  return target.role === "reviewer" || target.createdBy === actor.id;
+  return target.role === "reviewer" || target.role === "caller" || target.createdBy === actor.id;
 }
 
 /** Everyone can correct their own name and email. */
 export function canEdit(actor: Admin, target: Admin): boolean {
   return actor.id === target.id || canManage(actor, target);
+}
+
+/** The original brand, the only one with leads for now. Also in src/lib/brands.ts and db/schema.sql. */
+const LEADS_BRAND_ID = "00000000-0000-4000-8000-000000000001";
+
+/**
+ * Who can work the call list. A caller does nothing else: every other permission here names the
+ * roles it allows, so a new role starts with no access to anything.
+ */
+export function canWorkLeads(actor: Pick<Admin, "role" | "brandId">, brandId: string): boolean {
+  return actor.role === "superadmin" || (actor.role === "caller" && actor.brandId === brandId);
 }
 
 /** Reviewers send properties for approval. Admins can approve, so theirs go straight up. */
@@ -156,6 +167,9 @@ export async function createAdmin(
   // Admins always add to their own brand, whatever the request says.
   const brandId = actor.role === "superadmin" ? input.brandId : brandScope(actor);
   if (!z.uuid().safeParse(brandId).success) throw new AdminError("Choose a brand.");
+  if (role === "caller" && brandId !== LEADS_BRAND_ID) {
+    throw new AdminError("Leads belong to the main brand for now, so callers have to be added there.");
+  }
   const temporaryPassword = generatePassword();
   try {
     const [admin] = await db.query<Admin>(

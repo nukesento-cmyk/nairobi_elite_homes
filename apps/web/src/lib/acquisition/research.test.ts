@@ -529,7 +529,7 @@ describe("the SuperAdmin's decisions", () => {
   });
 
   it("keeps every part of this from other roles", async () => {
-    await expect(listLeads(db, admin, BRAND)).rejects.toThrow("Only the SuperAdmin");
+    await expect(listLeads(db, admin, BRAND)).rejects.toThrow("access to leads");
     await expect(listPendingDomains(db, admin, BRAND)).rejects.toThrow("Only the SuperAdmin");
     await expect(decideDomain(db, admin, BRAND, superadmin.id, "allowed", "")).rejects.toThrow("Only the SuperAdmin");
     await expect(approveLead(db, admin, BRAND, superadmin.id)).rejects.toThrow("Only the SuperAdmin");

@@ -129,7 +129,7 @@ export function ChangePasswordForm() {
   );
 }
 
-const ROLE_NAME: Record<string, string> = { admin: "Admin", reviewer: "Reviewer" };
+const ROLE_NAME: Record<string, string> = { admin: "Admin", reviewer: "Reviewer", caller: "Caller" };
 
 export function CreateAdminForm({ roles, brands }: { roles: string[]; brands?: BrandOption[] }) {
   const [state, action, pending] = useActionState(createAdminAction, {});

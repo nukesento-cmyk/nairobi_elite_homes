@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
@@ -41,6 +42,9 @@ async function LoginContent({ searchParams }: { searchParams: Promise<{ error?: 
       <UserLoginForm />
       <p className="mt-6 text-sm text-bone-200">
         Passwords come from whoever set up your account. If you&apos;ve lost yours, ask them to reset it.
+      </p>
+      <p className="mt-3 text-sm text-bone-200">
+        On the team? <Link href="/admin/login" className="text-copper-400 underline underline-offset-4">Staff sign in is here</Link>.
       </p>
     </>
   );

@@ -25,23 +25,25 @@ The main site, NairobiEliteHomes, is unchanged: it's still configured by `NEXT_P
 
 ## Who can do what
 
-| | SuperAdmin | Admin | Reviewer | User |
-|---|---|---|---|---|
-| Create and edit **brands** | Yes | No | No | No |
-| Create **admins** | Any brand | Own brand | No | No |
-| Edit, delete and reset **admins** | Any brand | Ones they added | No | No |
-| Create, edit, delete and reset **reviewers** | Any brand | Own brand | No | No |
-| Create, delete and reset **users** | Any brand | Own brand | Own brand | No |
-| Add and remove **WhatsApp groups** | Any brand | Own brand | No | No |
-| Add and edit **properties** | No | Own brand, live at once | Own brand, needs approval | No |
-| Write **blogs** | No | No | Own brand | No |
-| **Approve** or send back properties and blogs | Any brand | Own brand | No | No |
-| **Remove** a property | Any brand | Own brand | Own brand | No |
-| **Remove** a blog | Any brand | No | Own brand | No |
-| See and handle **community link requests** | Any brand | Own brand | No | No |
-| Change a brand's **site details** | Any brand | Own brand | No | No |
-| See **acquisition reports** and choose who gets them | Yes | No | No | No |
-| Change their own name, email and password | Yes | Yes | Yes | Password only |
+| | SuperAdmin | Admin | Reviewer | Caller | User |
+|---|---|---|---|---|---|
+| Create and edit **brands** | Yes | No | No | No | No |
+| Create **admins** | Any brand | Own brand | No | No | No |
+| Edit, delete and reset **admins** | Any brand | Ones they added | No | No | No |
+| Create, edit, delete and reset **reviewers** | Any brand | Own brand | No | No | No |
+| Create, delete and reset **users** | Any brand | Own brand | Own brand | No | No |
+| Add and remove **WhatsApp groups** | Any brand | Own brand | No | No | No |
+| Add and edit **properties** | No | Own brand, live at once | Own brand, needs approval | No | No |
+| Write **blogs** | No | No | Own brand | No | No |
+| **Approve** or send back properties and blogs | Any brand | Own brand | No | No | No |
+| **Remove** a property | Any brand | Own brand | Own brand | No | No |
+| **Remove** a blog | Any brand | No | Own brand | No | No |
+| See and handle **community link requests** | Any brand | Own brand | No | No | No |
+| Change a brand's **site details** | Any brand | Own brand | No | No | No |
+| See **acquisition reports** and choose who gets them | Yes | No | No | No | No |
+| See the **call list**, log calls and record **opt-outs** | Yes | No | No | Main brand | No |
+| Create, delete and reset **callers** | Main brand | Main brand | No | No | No |
+| Change their own name, email and password | Yes | Yes | Yes | Password only | Password only |
 
 Nobody can delete the SuperAdmin, and the database allows only one. An admin can't remove whoever added them. An email can only belong to one user, across all brands, so adding someone who already has an account in another brand is refused. Brands can't be deleted yet.
 
@@ -66,6 +68,7 @@ Money on the dashboard is called bread. The headline figure is an estimate: requ
 - **Users** sign in at `/login`, with Google or with an email and password. If Google fails for any reason, they come back to `/login` and are asked to use their password.
 - Staff or the SuperAdmin can create a user, who gets a temporary password shown once and must replace it at first sign-in. A lost password is reset by staff, since there's no email reset yet.
 - Anyone can also create a free account with Google. If the Google email matches an account staff created, it links to that account.
+- Someone added under **Users** can't use the staff login: it says their email and password don't match. Add your team under Staff accounts instead, with a role such as Caller.
 - **Staff** sign in at `/admin`, with Google or a password. Google only works for an email someone has already added as staff.
 
 To turn on Google sign-in:

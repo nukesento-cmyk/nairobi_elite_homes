@@ -55,7 +55,7 @@ import { chatWithNumber } from "@/lib/whatsapp";
 import { listWhatsAppGroups } from "@/lib/whatsapp-groups";
 import { db, getCurrentAdmin } from "@/lib/admin/session";
 
-const ROLE_LABEL = { superadmin: "SuperAdmin", admin: "Admin", reviewer: "Reviewer" };
+const ROLE_LABEL = { superadmin: "SuperAdmin", admin: "Admin", reviewer: "Reviewer", caller: "Caller" };
 
 function siteAddress(brand: Brand): string {
   return brand.domain ? brandOrigin(brand.domain) : `/b/${brand.slug}`;
@@ -118,6 +118,7 @@ async function Dashboard() {
     canManageGroups(me) ? listWhatsAppGroups(db, me) : [],
   ]);
 
+  const isCaller = me.role === "caller";
   const researchSettings = researchConfig(process.env);
   const researchOn = isSuperadmin && (await isResearchEnabled(db, DEFAULT_BRAND_ID));
   const [acquisitionReports, reportRecipients, pendingDomains, acquisitionLeads, doNotContactCount, onboardingCards] = isSuperadmin
@@ -129,7 +130,9 @@ async function Dashboard() {
         countDoNotContact(db, me),
         listOnboarding(db, me, DEFAULT_BRAND_ID),
       ])
-    : [[], [], [], [], 0, []];
+    : isCaller
+      ? [[], [], [], await listLeads(db, me, DEFAULT_BRAND_ID), await countDoNotContact(db, me), []]
+      : [[], [], [], [], 0, []];
 
   const uploads = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
   const [requests, queue] = canReview(me)
@@ -183,6 +186,13 @@ async function Dashboard() {
         { id: "onboarding", label: "Onboarding", count: onboardingOpen, content: <OnboardingPanel cards={onboardingCards} missing={missingDocumentSettings(process.env)} uploads={uploads} /> },
         { id: "research", label: "Research", count: pendingDomains.length, urgent: pendingDomains.length > 0, content: <ResearchView researchOn={researchOn} researchMissing={researchSettings.state === "misconfigured" ? researchSettings.missing : []} domains={pendingDomains} /> },
         { id: "reports", label: "Morning reports", content: <ReportsView reports={acquisitionReports} recipients={reportRecipients} emailReady={emailSender(process.env) !== null} /> },
+        { id: "do-not-contact", label: "Do Not Contact", content: <OptOutView count={doNotContactCount} /> },
+      ]
+    : [];
+
+  const calling: ShellItem[] = isCaller
+    ? [
+        { id: "leads", label: "Call list", count: followUpsDue, urgent: followUpsDue > 0, content: <LeadsView leads={acquisitionLeads} callerView /> },
         { id: "do-not-contact", label: "Do Not Contact", content: <OptOutView count={doNotContactCount} /> },
       ]
     : [];
@@ -314,7 +324,7 @@ async function Dashboard() {
           count: users.length,
           content: (
             <section aria-label="Users">
-              <PageHeader title="Users" description="Buyers with a free account on the site." />
+              <PageHeader title="Users" description="Site visitors with a free account. They sign in at /login, and can't use this dashboard. For your team, add them under Staff accounts instead, with a role such as Caller." />
               {users.length === 0 && <div className="mb-6"><EmptyState title="No users yet" /></div>}
               <ul className="mb-6 grid gap-4 md:grid-cols-2">
                 {users.map((user) => (
@@ -404,7 +414,7 @@ async function Dashboard() {
           count: accounts.length,
           content: (
             <section aria-label="Staff accounts">
-              <PageHeader title="Staff accounts" description="Who can sign in to this dashboard." />
+              <PageHeader title="Staff accounts" description="Who can sign in to this dashboard, at /admin/login. Callers see only the call list: approved leads, logging calls and opt-outs." />
               <ul className="mb-6 grid gap-4 md:grid-cols-2">
                 {accounts.map((admin) => (
                   <li key={admin.id} className="rounded-xl border border-border bg-forest-900/30 p-5">
@@ -454,6 +464,7 @@ async function Dashboard() {
   const groupsForNav: ShellGroup[] = [
     { label: null, items: home ? [home] : [] },
     { label: "Acquisition", items: acquisition },
+    { label: "Calling", items: calling },
     { label: "Content", items: content },
     { label: "Community", items: community },
     { label: "Settings", items: settings },

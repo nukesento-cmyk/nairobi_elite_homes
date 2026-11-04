@@ -72,7 +72,7 @@ export async function createUserAction(_: ActionState, form: FormData): Promise<
       email: form.get("email"),
       brandId: form.get("brandId"),
     });
-    return { message: `${user.name} can now sign in on the site as ${user.email}.`, temporaryPassword };
+    return { message: `${user.name} can now sign in at ${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/login as ${user.email}. This is the site's login, not the staff one.`, temporaryPassword };
   });
 }
 
