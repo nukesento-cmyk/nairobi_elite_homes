@@ -37,8 +37,8 @@ import {
   manageableRoles,
 } from "@/lib/admin/accounts";
 import { accessRequestStats, listAccessRequests } from "@/lib/access-requests";
-import { emailSender } from "@/lib/acquisition/cron";
-import { listRecipients, listReports } from "@/lib/acquisition/dashboard";
+import { emailSender, researchConfig } from "@/lib/acquisition/cron";
+import { listLeads, listPendingDomains, listRecipients, listReports } from "@/lib/acquisition/dashboard";
 import { DEFAULT_BRAND_ID, listBrands, type Brand } from "@/lib/brands";
 import { brandOrigin } from "@/lib/brand-site";
 import { listUsers } from "@/lib/buyers";
@@ -112,9 +112,14 @@ async function Dashboard() {
     canManageGroups(me) ? listWhatsAppGroups(db, me) : [],
   ]);
 
-  const [acquisitionReports, reportRecipients] = isSuperadmin
-    ? await Promise.all([listReports(db, me, DEFAULT_BRAND_ID), listRecipients(db, me, DEFAULT_BRAND_ID)])
-    : [[], []];
+  const [acquisitionReports, reportRecipients, pendingDomains, acquisitionLeads] = isSuperadmin
+    ? await Promise.all([
+        listReports(db, me, DEFAULT_BRAND_ID),
+        listRecipients(db, me, DEFAULT_BRAND_ID),
+        listPendingDomains(db, me, DEFAULT_BRAND_ID),
+        listLeads(db, me, DEFAULT_BRAND_ID),
+      ])
+    : [[], [], [], []];
 
   const uploads = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
   const [requests, queue] = canReview(me)
@@ -125,7 +130,7 @@ async function Dashboard() {
   const monthlyPrice = (await getLiveSite()).community.paidPriceKes;
   const queueCount = queue.properties.length + queue.posts.length;
   const sections = [
-    isSuperadmin && { href: "#acquisition", label: `Acquisition (${acquisitionReports.length})` },
+    isSuperadmin && { href: "#acquisition", label: `Acquisition (${acquisitionLeads.length})` },
     isSuperadmin && { href: "#brands", label: `Brands (${brands.length})` },
     canReview(me) && { href: "#overview", label: "Overview" },
     canManageProperties(me) && { href: "#properties", label: `Properties (${properties.length})` },
@@ -151,7 +156,14 @@ async function Dashboard() {
       </nav>
 
       {isSuperadmin && (
-        <AcquisitionPanel reports={acquisitionReports} recipients={reportRecipients} emailReady={emailSender(process.env) !== null} />
+        <AcquisitionPanel
+          reports={acquisitionReports}
+          recipients={reportRecipients}
+          emailReady={emailSender(process.env) !== null}
+          researchOn={researchConfig(process.env).state === "on"}
+          domains={pendingDomains}
+          leads={acquisitionLeads}
+        />
       )}
 
       {isSuperadmin && (

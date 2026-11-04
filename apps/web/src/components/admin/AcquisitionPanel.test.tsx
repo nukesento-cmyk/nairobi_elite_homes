@@ -7,6 +7,9 @@ import { AcquisitionPanel } from "./AcquisitionPanel";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/app/admin/acquisition-actions", () => ({
+  decideDomainAction: vi.fn(),
+  approveLeadAction: vi.fn(),
+  rejectLeadAction: vi.fn(),
   addRecipientAction: vi.fn(),
   removeRecipientAction: vi.fn(),
   sendReportAction: vi.fn(),
@@ -23,6 +26,9 @@ describe("AcquisitionPanel", () => {
   it("shows each report in a sandbox, with how it went", () => {
     const { container } = render(
       <AcquisitionPanel
+        researchOn={false}
+        domains={[]}
+        leads={[]}
         recipients={[]}
         emailReady
         reports={[
@@ -42,16 +48,16 @@ describe("AcquisitionPanel", () => {
   });
 
   it("offers sending only once email works, and says so when it doesn't", () => {
-    const { rerender } = render(<AcquisitionPanel recipients={[]} emailReady={false} reports={[run({})]} />);
+    const { rerender } = render(<AcquisitionPanel researchOn={false} domains={[]} leads={[]} recipients={[]} emailReady={false} reports={[run({})]} />);
     expect(screen.getByText(/Email isn.t set up yet/)).toBeTruthy();
     expect(screen.queryByLabelText("Send this report to")).toBeNull();
-    rerender(<AcquisitionPanel recipients={[{ id: "a", email: "team@example.com" }]} emailReady reports={[run({})]} />);
+    rerender(<AcquisitionPanel researchOn={false} domains={[]} leads={[]} recipients={[{ id: "a", email: "team@example.com" }]} emailReady reports={[run({})]} />);
     expect(screen.getByLabelText("Send this report to")).toBeTruthy();
     expect(screen.getByLabelText("Remove team@example.com")).toBeTruthy();
   });
 
   it("says when there's nothing yet", () => {
-    render(<AcquisitionPanel recipients={[]} emailReady={false} reports={[]} />);
+    render(<AcquisitionPanel researchOn={false} domains={[]} leads={[]} recipients={[]} emailReady={false} reports={[]} />);
     expect(screen.getByText(/No reports yet/)).toBeTruthy();
     expect(screen.getByText(/Nobody yet/)).toBeTruthy();
   });

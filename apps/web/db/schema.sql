@@ -448,6 +448,31 @@ CREATE TABLE IF NOT EXISTS acq_report_recipients (
   UNIQUE (brand_id, email)
 );
 
+-- Pages discovery found. A page on a domain nobody has approved waits here, unfetched.
+CREATE TABLE IF NOT EXISTS acq_candidates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL REFERENCES brands (id) ON DELETE RESTRICT,
+  url text NOT NULL,
+  domain text NOT NULL,
+  title text,
+  search_query text,
+  status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'qualified', 'no_lead', 'person_skipped', 'refused', 'stopped', 'failed')),
+  reason text,
+  discovered_at timestamptz NOT NULL DEFAULT now(),
+  processed_at timestamptz,
+  UNIQUE (brand_id, url)
+);
+CREATE INDEX IF NOT EXISTS acq_candidates_queue ON acq_candidates (brand_id, status, discovered_at);
+
+-- A page that turned out to hold no lead, or a private person, keeps no text. This is how it's
+-- erased: the setting lasts only for this one statement.
+CREATE OR REPLACE FUNCTION acq_discard_source_text(record_id uuid) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('acq.erasure', 'on', true);
+  UPDATE acq_source_records SET extract = NULL, content_sha256 = NULL, snapshot_expires_at = NULL WHERE id = record_id;
+  PERFORM set_config('acq.erasure', 'off', true);
+END $$;
+
 -- A property that came through acquisition can't be approved until onboarding is complete,
 -- whichever role submits it. Properties added by hand leave this empty and are unaffected.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS acq_onboarding_id uuid REFERENCES acq_onboarding (id) ON DELETE RESTRICT;

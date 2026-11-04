@@ -1,6 +1,6 @@
 # Morning acquisition job
 
-Every morning this job runs on Vercel and puts a report on the SuperAdmin's dashboard at `/admin`, under Acquisition. There the SuperAdmin chooses who gets it by email, and can send any report to any address. Nothing runs on anyone's computer, so laptops can be off. Phase 1 proves the schedule and delivery only: it does no research, and every report is labelled as a test, with no real leads.
+Every morning this job runs on Vercel and puts a report on the SuperAdmin's dashboard at `/admin`, under Acquisition. There the SuperAdmin chooses who gets it by email, and can send any report to any address. Nothing runs on anyone's computer, so laptops can be off. Research stays off until `ACQUISITION_RESEARCH_ENABLED` is `on`. Until then every report is labelled as a test, with no real leads. See "Research" below.
 
 Code is in `apps/web/src/lib/acquisition`, routes are under `apps/web/src/app/api/cron`, and tables start with `acq_` in `apps/web/db/schema.sql`.
 
@@ -14,6 +14,34 @@ Set in `apps/web/vercel.json`, in UTC. Kenya is UTC+3 all year.
 | `/api/cron/acquisition-watchdog` | `0 4 * * *` | 07:00 and 07:59 EAT | 07:00 EAT |
 
 Both run the same job. Whichever arrives first does the work, a repeat does nothing, and a later call resumes an unfinished run from the step that stopped. Only the watchdog sends an alert, because it's the last chance that day.
+
+Research runs in three slots before the report, each within one function's 300-second limit: `/api/cron/acquisition-research?slot=1`, `2` and `3`, at `0 0`, `0 1` and `0 2` UTC. On Hobby each can fire up to 59 minutes late, and all finish before the report.
+
+## Research
+
+Each slot searches the web, then reads pages only from domains a person has allowed. Claude reads each page and returns structured facts, with no database or email tools. Code then checks every quote, name, price and contact against the stored page text. Anything not on the page is dropped.
+
+**To switch it on:**
+
+1. Set `ANTHROPIC_API_KEY`, and `ACQUISITION_HASH_KEY` to a random value of 32 or more characters. Never change the hash key afterwards, or opt-outs stop matching.
+2. Optionally set `ACQUISITION_DAILY_SPEND_USD`. The default cap is 3 dollars a day across search and Claude.
+3. Set `ACQUISITION_RESEARCH_ENABLED` to `on`, then deploy.
+
+**Every morning after that, the SuperAdmin:**
+
+1. Reviews new domains at `/admin`, under Acquisition. Read the site's terms first, then choose Allow research, People only or Block. Nothing is read until a domain is allowed, so the first days mostly fill this list.
+2. Reviews leads, then approves or rejects each.
+
+**Private individuals are skipped.** A page about a private person keeps no text, and no prospect or contact is saved. This holds until counsel clears it, and changing it needs a code change as well as the `individual_published` rule.
+
+**Approval will refuse leads while contact classes are locked.** Only `owner_submitted` is callable by default. Once counsel clears a class, update it in `acq_contact_class_rules`:
+
+```sql
+UPDATE acq_contact_class_rules SET callable = true, updated_by = '<who, on whose advice>'
+WHERE contact_class = 'organisation_line';
+```
+
+Google Places isn't used yet, and duplicates are matched on website, contact and exact name only.
 
 ## Setup
 
@@ -67,6 +95,7 @@ These hold whatever the application code does, and `src/lib/acquisition/acquisit
 
 ## Known limits
 
-- A function can run for up to 300 seconds here. Phase 3's research may take longer, so it has to work in batches that resume between calls.
+- A function can run for up to 300 seconds on Hobby. Each research slot stops at about 230 seconds, and pages it didn't reach wait for the next slot.
+- Daily lead volume and cost haven't been measured yet. Three slots may not reach 20 to 30 leads a day.
 - `Do Not Contact` has no undo yet. Recording later consent comes in Phase 2.
 - The Hobby plan can't promise an exact time. Pro makes these times exact.

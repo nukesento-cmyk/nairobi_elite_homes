@@ -15,6 +15,7 @@
     "seed-blogs": "node --env-file-if-exists=.env.local scripts/seed-blogs.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.4.0",
     "@marsidev/react-turnstile": "^1.6.3",
     "@sanity/client": "^8.14.1",
     "@vercel/blob": "^2.8.2",

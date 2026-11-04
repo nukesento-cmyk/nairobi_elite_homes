@@ -22,6 +22,27 @@ export function missingConfig(env: Record<string, string | undefined>): string[]
   return ["CRON_SECRET", "DATABASE_URL"].filter((name) => !env[name]);
 }
 
+const DEFAULT_DAILY_SPEND_USD = 3;
+
+export type ResearchConfig =
+  | { state: "off" }
+  | { state: "misconfigured"; missing: string[] }
+  | { state: "on"; apiKey: string; hashKey: string; dailySpendCapUsd: number };
+
+/** Research runs only when deliberately switched on. Switched on with parts missing, it refuses. */
+export function researchConfig(env: Record<string, string | undefined>): ResearchConfig {
+  if (env.ACQUISITION_RESEARCH_ENABLED !== "on") return { state: "off" };
+  const missing = ["ANTHROPIC_API_KEY", "ACQUISITION_HASH_KEY"].filter((name) => !env[name]);
+  if (missing.length > 0) return { state: "misconfigured", missing };
+  const cap = Number(env.ACQUISITION_DAILY_SPEND_USD);
+  return {
+    state: "on",
+    apiKey: env.ANTHROPIC_API_KEY!,
+    hashKey: env.ACQUISITION_HASH_KEY!,
+    dailySpendCapUsd: Number.isFinite(cap) && cap > 0 ? cap : DEFAULT_DAILY_SPEND_USD,
+  };
+}
+
 /** Null until both the key and a sender are set. */
 export function emailSender(env: Record<string, string | undefined>): SendEmail | null {
   const { RESEND_API_KEY: apiKey, LEAD_EMAIL_FROM: from } = env;

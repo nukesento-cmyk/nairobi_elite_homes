@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { emailSender } from "@/lib/acquisition/cron";
-import { addRecipient, removeRecipient, sendReportTo } from "@/lib/acquisition/dashboard";
+import { addRecipient, approveLead, decideDomain, rejectLead, removeRecipient, sendReportTo } from "@/lib/acquisition/dashboard";
 import { AdminError } from "@/lib/admin/accounts";
 import { requireAdmin } from "@/lib/admin/guard";
 import { db } from "@/lib/admin/session";
@@ -33,6 +33,27 @@ export async function removeRecipientAction(_: ActionState, form: FormData): Pro
   return run(async () => {
     await removeRecipient(db, await requireAdmin(), DEFAULT_BRAND_ID, String(form.get("id")));
     return { message: "Removed." };
+  });
+}
+
+export async function decideDomainAction(_: ActionState, form: FormData): Promise<ActionState> {
+  return run(async () => {
+    await decideDomain(db, await requireAdmin(), DEFAULT_BRAND_ID, String(form.get("id")), String(form.get("verdict")), form.get("termsUrl"));
+    return { message: "Saved." };
+  });
+}
+
+export async function approveLeadAction(_: ActionState, form: FormData): Promise<ActionState> {
+  return run(async () => {
+    await approveLead(db, await requireAdmin(), DEFAULT_BRAND_ID, String(form.get("id")));
+    return { message: "Ready to call." };
+  });
+}
+
+export async function rejectLeadAction(_: ActionState, form: FormData): Promise<ActionState> {
+  return run(async () => {
+    await rejectLead(db, await requireAdmin(), DEFAULT_BRAND_ID, String(form.get("id")));
+    return { message: "Rejected." };
   });
 }
 

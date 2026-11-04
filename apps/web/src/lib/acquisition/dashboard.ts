@@ -65,6 +65,86 @@ export async function removeRecipient(db: Db, actor: Admin, brandId: string, id:
   await db.query(`DELETE FROM acq_report_recipients WHERE id = $1 AND brand_id = $2`, [id, brandId]);
 }
 
+export type PendingDomain = { id: string; domain: string; pages: number; exampleUrl: string | null; exampleTitle: string | null };
+
+/** Domains discovery found. Nothing is read from one until a person has looked at its terms. */
+export async function listPendingDomains(db: Db, actor: Admin, brandId: string): Promise<PendingDomain[]> {
+  requireSuperadmin(actor);
+  const rows = await db.query<Omit<PendingDomain, "pages"> & { pages: string }>(
+    `SELECT p.id, p.domain,
+       (SELECT count(*) FROM acq_candidates c WHERE c.brand_id = p.brand_id AND c.domain = p.domain AND c.status = 'queued')::text AS pages,
+       (SELECT c.url FROM acq_candidates c WHERE c.brand_id = p.brand_id AND c.domain = p.domain ORDER BY c.discovered_at LIMIT 1) AS "exampleUrl",
+       (SELECT c.title FROM acq_candidates c WHERE c.brand_id = p.brand_id AND c.domain = p.domain ORDER BY c.discovered_at LIMIT 1) AS "exampleTitle"
+     FROM acq_source_policies p WHERE p.brand_id = $1 AND p.verdict = 'pending' ORDER BY p.created_at LIMIT 100`,
+    [brandId],
+  );
+  return rows.map((row) => ({ ...row, pages: Number(row.pages) }));
+}
+
+export async function decideDomain(db: Db, actor: Admin, brandId: string, id: string, verdict: string, termsUrl: unknown): Promise<void> {
+  requireSuperadmin(actor);
+  if (verdict !== "allowed" && verdict !== "human_only" && verdict !== "blocked") throw new AdminError("Choose allow or block.");
+  await db.query(
+    `UPDATE acq_source_policies SET verdict = $3, terms_url = COALESCE(NULLIF($4::text, ''), terms_url), reviewed_by = $5::text::uuid, reviewed_at = now(), updated_at = now(), updated_by = $5::text
+     WHERE id = $1 AND brand_id = $2`,
+    [id, brandId, verdict, String(termsUrl ?? "").trim().slice(0, 500), actor.id],
+  );
+}
+
+export type LeadRow = {
+  id: string;
+  name: string;
+  category: string;
+  campaign: string | null;
+  status: string;
+  score: number | null;
+  scoreBreakdown: Record<string, number>;
+  role: string;
+  authority: string;
+  script: string | null;
+  evidence: { claimType: string; quote: string; url: string }[];
+  contacts: { kind: string; value: string; contactClass: string; callable: boolean }[];
+  property: string | null;
+};
+
+const LEADS_SHOWN = 50;
+
+export async function listLeads(db: Db, actor: Admin, brandId: string): Promise<LeadRow[]> {
+  requireSuperadmin(actor);
+  return db.query<LeadRow>(
+    `SELECT p.id, p.display_name AS name, p.category, p.campaign, p.status, p.score, p.score_breakdown AS "scoreBreakdown",
+       p.owner_rep_class AS role, p.authority_status AS authority, p.opening_script AS script,
+       (SELECT concat_ws(', ', o.property_type, o.area) FROM acq_opportunities o WHERE o.prospect_id = p.id ORDER BY o.first_seen_at DESC LIMIT 1) AS property,
+       COALESCE((SELECT jsonb_agg(jsonb_build_object('claimType', e.claim_type, 'quote', e.quote, 'url', s.url))
+                 FROM acq_evidence e JOIN acq_source_records s ON s.id = e.source_record_id WHERE e.prospect_id = p.id), '[]') AS evidence,
+       COALESCE((SELECT jsonb_agg(jsonb_build_object('kind', c.kind, 'value', c.normalised_value, 'contactClass', c.contact_class, 'callable', r.callable AND c.usable))
+                 FROM acq_contacts c JOIN acq_contact_class_rules r ON r.brand_id = c.brand_id AND r.contact_class = c.contact_class
+                 WHERE c.prospect_id = p.id), '[]') AS contacts
+     FROM acq_prospects p WHERE p.brand_id = $1 AND p.status IN ('researched', 'ready_to_call')
+     ORDER BY p.status, p.score DESC NULLS LAST, p.created_at DESC LIMIT ${LEADS_SHOWN}`,
+    [brandId],
+  );
+}
+
+/** The database decides if this is allowed, and its reason is what the person sees. */
+export async function approveLead(db: Db, actor: Admin, brandId: string, id: string): Promise<void> {
+  requireSuperadmin(actor);
+  try {
+    await db.query(
+      `UPDATE acq_prospects SET status = 'ready_to_call', approved_by = $3::text::uuid, approved_at = now(), updated_by = $3::text WHERE id = $1 AND brand_id = $2`,
+      [id, brandId, actor.id],
+    );
+  } catch (error) {
+    if ((error as { code?: string }).code === "P0001") throw new AdminError((error as Error).message);
+    throw error;
+  }
+}
+
+export async function rejectLead(db: Db, actor: Admin, brandId: string, id: string): Promise<void> {
+  requireSuperadmin(actor);
+  await db.query(`UPDATE acq_prospects SET status = 'rejected', updated_by = $3 WHERE id = $1 AND brand_id = $2 AND status = 'researched'`, [id, brandId, actor.id]);
+}
+
 /** Sends one report to one address, without changing who gets tomorrow's. */
 export async function sendReportTo(
   db: Db,

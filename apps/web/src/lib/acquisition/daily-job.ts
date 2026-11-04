@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import type { Db } from "@/lib/admin/accounts";
 
 import { checkHostPolicy } from "./policy";
-import { buildDailyReport, type Report } from "./report";
+import { buildDailyReport, type Report, type ReportLead } from "./report";
 import { nairobiDate, runJob, type RunResult, type Step } from "./runner";
 import { SAMPLE_LEADS } from "./sample-leads";
 
@@ -17,6 +17,8 @@ export type DailyJobDeps = {
   brandId: string;
   /** Null until email is set up. The report still appears on the SuperAdmin's dashboard. */
   sendEmail: SendEmail | null;
+  /** Off means a labelled test report. On means today's real research, however little it found. */
+  researchEnabled?: boolean;
   /** Extra addresses for failure alerts, used even if the database is what's down. */
   alertTo?: string[];
   /** Tells the outside monitor the report is ready. Optional until the monitor is set up. */
@@ -32,6 +34,57 @@ export async function reportRecipients(db: Db, brandId: string): Promise<string[
     [brandId],
   );
   return rows.map((row) => row.email);
+}
+
+const TOP_LEADS = 10;
+
+/** Today's real leads and funnel. Contact details stay out: they live behind the dashboard sign-in. */
+async function loadTodaysResearch(db: Db, brandId: string, runDate: string): Promise<{ leads: ReportLead[]; count: number; funnel: { label: string; count: number }[] }> {
+  const today = `((p.created_at AT TIME ZONE 'UTC') + interval '3 hours')::date = $2::text::date`;
+  const rows = await db.query<{ score: number; name: string; category: string; campaign: string; role: string; authority: string; property: string | null; quote: string; url: string }>(
+    `SELECT p.score, p.display_name AS name, p.category, p.campaign, p.owner_rep_class AS role, p.authority_status AS authority,
+       (SELECT concat_ws(', ', o.property_type, o.area) FROM acq_opportunities o WHERE o.prospect_id = p.id ORDER BY o.first_seen_at DESC LIMIT 1) AS property,
+       e.quote, s.url
+     FROM acq_prospects p
+     JOIN LATERAL (SELECT quote, source_record_id FROM acq_evidence WHERE prospect_id = p.id ORDER BY created_at LIMIT 1) e ON true
+     JOIN acq_source_records s ON s.id = e.source_record_id
+     WHERE p.brand_id = $1 AND p.status = 'researched' AND ${today}
+     ORDER BY p.score DESC, p.created_at`,
+    [brandId, runDate],
+  );
+
+  const [stages] = await db.query<Record<"found" | "no_lead" | "people" | "refused" | "qualified" | "domains", string>>(
+    `SELECT
+       count(*) FILTER (WHERE ((discovered_at AT TIME ZONE 'UTC') + interval '3 hours')::date = $2::text::date)::text AS found,
+       count(*) FILTER (WHERE status = 'no_lead' AND ((processed_at AT TIME ZONE 'UTC') + interval '3 hours')::date = $2::text::date)::text AS no_lead,
+       count(*) FILTER (WHERE status = 'person_skipped' AND ((processed_at AT TIME ZONE 'UTC') + interval '3 hours')::date = $2::text::date)::text AS people,
+       count(*) FILTER (WHERE status IN ('refused', 'stopped', 'failed') AND ((processed_at AT TIME ZONE 'UTC') + interval '3 hours')::date = $2::text::date)::text AS refused,
+       count(*) FILTER (WHERE status = 'qualified' AND ((processed_at AT TIME ZONE 'UTC') + interval '3 hours')::date = $2::text::date)::text AS qualified,
+       (SELECT count(*) FROM acq_source_policies WHERE brand_id = $1 AND verdict = 'pending')::text AS domains
+     FROM acq_candidates WHERE brand_id = $1`,
+    [brandId, runDate],
+  );
+
+  return {
+    count: rows.length,
+    leads: rows.slice(0, TOP_LEADS).map((row) => ({
+      score: row.score,
+      prospect: row.name,
+      category: `${row.category}, ${row.campaign}`,
+      property: row.property || "Not stated",
+      classification: `${row.role}, ${row.authority}`,
+      evidence: row.quote,
+      sourceUrl: row.url,
+    })),
+    funnel: [
+      { label: "pages found", count: Number(stages.found) },
+      { label: "pages with no lead", count: Number(stages.no_lead) },
+      { label: "pages about private individuals, skipped and not kept", count: Number(stages.people) },
+      { label: "pages that refused or failed", count: Number(stages.refused) },
+      { label: "qualified leads", count: Number(stages.qualified) },
+      { label: "domains waiting for your review on the dashboard", count: Number(stages.domains) },
+    ],
+  };
 }
 
 /** Confirms the safety rules are really in force, so a bad schema shows up in the morning report. */
@@ -74,7 +127,11 @@ export async function runDailyJob(deps: DailyJobDeps, startedBy: "cron" | "watch
       name: "report",
       run: async (outputs) => {
         const { checks } = outputs.self_check as { checks: Check[] };
-        return buildDailyReport({ runDate, isTest: true, startedAt: now(), realLeadCount: 0, leads: SAMPLE_LEADS, checks });
+        if (!deps.researchEnabled) {
+          return buildDailyReport({ runDate, isTest: true, startedAt: now(), realLeadCount: 0, leads: SAMPLE_LEADS, checks });
+        }
+        const { leads, count, funnel } = await loadTodaysResearch(deps.db, deps.brandId, runDate);
+        return buildDailyReport({ runDate, isTest: false, startedAt: now(), realLeadCount: count, leads, checks, funnel });
       },
     },
     {
