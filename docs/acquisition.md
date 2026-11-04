@@ -28,7 +28,7 @@ Both run the same job. Whichever arrives first does the work, a repeat does noth
    | `ACQUISITION_MONITOR_URL` | Optional but recommended. See below |
 
 2. Apply the schema: `DATABASE_URL=<production url> pnpm --filter web db:apply`. It's safe to repeat, and leaves changes people made to source policies and contact rules alone.
-3. Deploy to production. Vercel only runs crons on production deployments, and this project deploys with the CLI: git pushes don't deploy.
+3. Deploy to production. Vercel only runs crons on production deployments. Pushing to `main` deploys to production, so add new variables before pushing: a deployment doesn't pick up variables added after it started.
 4. Trigger a first run from the Vercel dashboard (Settings, Cron Jobs), or check `/admin` the next morning.
 5. Sign in as the SuperAdmin, open Acquisition, and add who should get the report by email.
 
