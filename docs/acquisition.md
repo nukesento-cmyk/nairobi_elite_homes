@@ -1,6 +1,6 @@
 # Morning acquisition job
 
-Every morning this job runs on Vercel and emails the team a report. Nothing runs on anyone's computer, so laptops can be off. Phase 1 proves the schedule and delivery only: it does no research, and every report is labelled as a test, with no real leads.
+Every morning this job runs on Vercel and puts a report on the SuperAdmin's dashboard at `/admin`, under Acquisition. There the SuperAdmin chooses who gets it by email, and can send any report to any address. Nothing runs on anyone's computer, so laptops can be off. Phase 1 proves the schedule and delivery only: it does no research, and every report is labelled as a test, with no real leads.
 
 Code is in `apps/web/src/lib/acquisition`, routes are under `apps/web/src/app/api/cron`, and tables start with `acq_` in `apps/web/db/schema.sql`.
 
@@ -22,15 +22,15 @@ Both run the same job. Whichever arrives first does the work, a repeat does noth
    | Variable | Value |
    |---|---|
    | `CRON_SECRET` | Random, at least 16 characters. Without it nothing can start the job |
-   | `RESEND_API_KEY` | From Resend |
-   | `LEAD_EMAIL_FROM` | An address on a domain verified in Resend |
-   | `ACQUISITION_REPORT_EMAIL_TO` | Comma-separated recipients |
-   | `ACQUISITION_ALERT_EMAIL_TO` | Optional. Defaults to the report address |
+   | `RESEND_API_KEY` | Optional. Without it, reports only appear on the dashboard |
+   | `LEAD_EMAIL_FROM` | Optional, needed with the key. An address on a domain verified in Resend. `onboarding@resend.dev` only delivers to the Resend account's own email |
+   | `ACQUISITION_ALERT_EMAIL_TO` | Optional. Defaults to the report's recipients |
    | `ACQUISITION_MONITOR_URL` | Optional but recommended. See below |
 
 2. Apply the schema: `DATABASE_URL=<production url> pnpm --filter web db:apply`. It's safe to repeat, and leaves changes people made to source policies and contact rules alone.
 3. Deploy to production. Vercel only runs crons on production deployments, and this project deploys with the CLI: git pushes don't deploy.
-4. Trigger a first run from the Vercel dashboard (Settings, Cron Jobs), or check the email arrives the next morning.
+4. Trigger a first run from the Vercel dashboard (Settings, Cron Jobs), or check `/admin` the next morning.
+5. Sign in as the SuperAdmin, open Acquisition, and add who should get the report by email.
 
 ## Outside monitor
 
@@ -49,7 +49,8 @@ WHERE run_id = '<id>' ORDER BY id;
 | What you see | Meaning | Do this |
 |---|---|---|
 | No row for today | Neither cron reached the job | Check Cron Jobs in Vercel and its logs. A 503 names the missing variables |
-| `failed` at `deliver` | Email wasn't accepted | Check the Resend dashboard, then re-trigger the watchdog from Vercel |
+| `failed` at `deliver` | Email wasn't accepted. The report is still on the dashboard | Check the Resend dashboard, then re-trigger the watchdog from Vercel |
+| `completed`, no `delivered_at` | Email isn't set up, or nobody is chosen to receive it | Read it on the dashboard, or add recipients there |
 | `failed` at `database` in the alert | Database unreachable | Check Neon, then re-trigger |
 | `running` for over 10 minutes | An attempt was killed | The next trigger takes it over once its lease expires |
 

@@ -438,6 +438,16 @@ CREATE TABLE IF NOT EXISTS acq_audit_log (
   at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Who gets the morning report by email. Only the SuperAdmin changes this, from the dashboard.
+CREATE TABLE IF NOT EXISTS acq_report_recipients (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL REFERENCES brands (id) ON DELETE RESTRICT,
+  email text NOT NULL CHECK (email = lower(email)),
+  updated_by text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (brand_id, email)
+);
+
 -- A property that came through acquisition can't be approved until onboarding is complete,
 -- whichever role submits it. Properties added by hand leave this empty and are unaffected.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS acq_onboarding_id uuid REFERENCES acq_onboarding (id) ON DELETE RESTRICT;
@@ -490,6 +500,8 @@ CREATE OR REPLACE TRIGGER acq_suppression_audit AFTER INSERT OR UPDATE OR DELETE
 CREATE OR REPLACE TRIGGER acq_campaigns_audit AFTER INSERT OR UPDATE OR DELETE ON acq_campaigns
   FOR EACH ROW EXECUTE FUNCTION acq_write_audit('');
 CREATE OR REPLACE TRIGGER acq_onboarding_audit AFTER INSERT OR UPDATE OR DELETE ON acq_onboarding
+  FOR EACH ROW EXECUTE FUNCTION acq_write_audit('');
+CREATE OR REPLACE TRIGGER acq_report_recipients_audit AFTER INSERT OR UPDATE OR DELETE ON acq_report_recipients
   FOR EACH ROW EXECUTE FUNCTION acq_write_audit('');
 
 -- Every status change goes through here.

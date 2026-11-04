@@ -19,6 +19,7 @@ import {
   EditBrandForm,
   ResetUserPasswordForm,
 } from "@/components/admin/BrandForms";
+import { AcquisitionPanel } from "@/components/admin/AcquisitionPanel";
 import { DeleteItem, PostManager, PropertyManager } from "@/components/admin/ContentForms";
 import { AdminOverview } from "@/components/admin/AdminOverview";
 import { RequestRow, ReviewItem } from "@/components/admin/ReviewForms";
@@ -36,6 +37,8 @@ import {
   manageableRoles,
 } from "@/lib/admin/accounts";
 import { accessRequestStats, listAccessRequests } from "@/lib/access-requests";
+import { emailSender } from "@/lib/acquisition/cron";
+import { listRecipients, listReports } from "@/lib/acquisition/dashboard";
 import { DEFAULT_BRAND_ID, listBrands, type Brand } from "@/lib/brands";
 import { brandOrigin } from "@/lib/brand-site";
 import { listUsers } from "@/lib/buyers";
@@ -109,6 +112,10 @@ async function Dashboard() {
     canManageGroups(me) ? listWhatsAppGroups(db, me) : [],
   ]);
 
+  const [acquisitionReports, reportRecipients] = isSuperadmin
+    ? await Promise.all([listReports(db, me, DEFAULT_BRAND_ID), listRecipients(db, me, DEFAULT_BRAND_ID)])
+    : [[], []];
+
   const uploads = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
   const [requests, queue] = canReview(me)
     ? await Promise.all([listAccessRequests(db, me), reviewQueue(db, me)])
@@ -118,6 +125,7 @@ async function Dashboard() {
   const monthlyPrice = (await getLiveSite()).community.paidPriceKes;
   const queueCount = queue.properties.length + queue.posts.length;
   const sections = [
+    isSuperadmin && { href: "#acquisition", label: `Acquisition (${acquisitionReports.length})` },
     isSuperadmin && { href: "#brands", label: `Brands (${brands.length})` },
     canReview(me) && { href: "#overview", label: "Overview" },
     canManageProperties(me) && { href: "#properties", label: `Properties (${properties.length})` },
@@ -141,6 +149,10 @@ async function Dashboard() {
           </a>
         ))}
       </nav>
+
+      {isSuperadmin && (
+        <AcquisitionPanel reports={acquisitionReports} recipients={reportRecipients} emailReady={emailSender(process.env) !== null} />
+      )}
 
       {isSuperadmin && (
         <section id="brands" className="mb-14 scroll-mt-6" aria-labelledby="brands-heading">

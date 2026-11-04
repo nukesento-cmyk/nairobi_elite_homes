@@ -4,10 +4,11 @@ import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Db } from "@/lib/admin/accounts";
+import type { Admin, Db } from "@/lib/admin/accounts";
 
-import { isAuthorizedCron, missingConfig, monitorPinger, recipients } from "./cron";
+import { emailSender, isAuthorizedCron, missingConfig, monitorPinger, recipients } from "./cron";
 import { DAILY_JOB, runDailyJob, type Email } from "./daily-job";
+import { addRecipient, canViewAcquisition, listRecipients, listReports, removeRecipient, sendReportTo } from "./dashboard";
 import { fetchPage, htmlToText } from "./fetcher";
 import { checkSourcePolicy, publicHost } from "./policy";
 import { buildDailyReport } from "./report";
@@ -30,7 +31,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await pg.exec(`TRUNCATE acq_runs, acq_prospects, acq_source_records, acq_suppression, acq_onboarding, properties CASCADE;
+  await pg.exec(`TRUNCATE acq_runs, acq_prospects, acq_source_records, acq_suppression, acq_onboarding, acq_report_recipients, properties CASCADE;
     DELETE FROM acq_source_policies WHERE verdict = 'pending' OR domain = 'approved.example';
     UPDATE acq_contact_class_rules SET callable = (contact_class = 'owner_submitted');`);
   await pg.exec(`INSERT INTO acq_source_policies (brand_id, domain, verdict) VALUES ('${BRAND}', 'approved.example', 'allowed');`);
@@ -213,7 +214,11 @@ describe("run lock and resume", () => {
 
 describe("the morning job", () => {
   const now = () => new Date("2026-11-05T03:00:00Z");
-  const deps = (over: Partial<Parameters<typeof runDailyJob>[0]> = {}) => {
+  type Over = Partial<Parameters<typeof runDailyJob>[0]> & {
+    sendReport?: (email: Email) => Promise<void>;
+    sendAlert?: (email: Email) => Promise<void>;
+  };
+  const deps = ({ sendReport, sendAlert, ...over }: Over = {}) => {
     const sent: Email[] = [];
     const alerts: Email[] = [];
     return {
@@ -223,12 +228,40 @@ describe("the morning job", () => {
         db,
         brandId: BRAND,
         now,
-        sendReport: async (email: Email) => { sent.push(email); },
-        sendAlert: async (email: Email) => { alerts.push(email); },
+        alertTo: ["alerts@example.com"],
+        sendEmail: async (email: Email) => {
+          const alert = email.idempotencyKey.includes("alert");
+          if (alert) await sendAlert?.(email);
+          else await sendReport?.(email);
+          (alert ? alerts : sent).push(email);
+        },
         ...over,
       },
     };
   };
+
+  beforeEach(async () => {
+    await db.query(`INSERT INTO acq_report_recipients (brand_id, email) VALUES ($1, 'team@example.com')`, [BRAND]);
+  });
+
+  it("still finishes, for the dashboard, when email isn't set up or nobody is chosen", async () => {
+    const { deps: noEmail } = deps({ sendEmail: null });
+    expect((await runDailyJob(noEmail, "cron")).status).toBe("completed");
+    expect((await one<{ delivered_at: Date | null }>(`SELECT delivered_at FROM acq_runs`)).delivered_at).toBeNull();
+
+    await pg.exec(`TRUNCATE acq_runs CASCADE; DELETE FROM acq_report_recipients;`);
+    const { deps: nobody, sent } = deps();
+    expect((await runDailyJob(nobody, "cron")).status).toBe("completed");
+    expect(sent).toHaveLength(0);
+  });
+
+  it("sends to whoever the SuperAdmin chose", async () => {
+    await db.query(`INSERT INTO acq_report_recipients (brand_id, email) VALUES ($1, 'second@example.com')`, [BRAND]);
+    let to: string[] = [];
+    const { deps: d } = deps({ sendEmail: async (_, list) => { to = list; } });
+    await runDailyJob(d, "cron");
+    expect(to).toEqual(["second@example.com", "team@example.com"]);
+  });
 
   it("delivers a labelled test report, then pings the monitor", async () => {
     const order: string[] = [];
@@ -249,7 +282,7 @@ describe("the morning job", () => {
     await runDailyJob(d, "cron");
     expect((await runDailyJob(d, "watchdog")).status).toBe("skipped");
     expect(sent).toHaveLength(1);
-    expect(sent[0].idempotencyKey).toBe("acq-daily-report/2026-11-05");
+    expect(sent[0].idempotencyKey).toMatch(/^acq-daily-report\/2026-11-05\/[0-9a-f]{16}$/);
   });
 
   it("has the watchdog do the whole job if the first cron never fired", async () => {
@@ -309,6 +342,73 @@ describe("the morning job", () => {
   });
 });
 
+describe("the SuperAdmin's dashboard", () => {
+  const person = (role: Admin["role"]): Admin => ({
+    id: "00000000-0000-4000-8000-0000000000aa", email: "s@example.com", name: "S", role,
+    brandId: role === "superadmin" ? null : BRAND, createdBy: null, mustChangePassword: false, createdAt: "",
+  });
+  const superadmin = person("superadmin");
+  const finishedRun = async () => {
+    await runDailyJob({ db, brandId: BRAND, sendEmail: null, now: () => new Date("2026-11-05T03:00:00Z") }, "cron");
+    return (await listReports(db, superadmin, BRAND))[0];
+  };
+
+  it("shows a finished report even with no email set up", async () => {
+    const run = await finishedRun();
+    expect(run).toMatchObject({ runDate: "2026-11-05", status: "completed", emailed: false });
+    expect(run.report?.subject).toContain("[TEST, no real leads]");
+    expect(run.report?.html).toContain("Test run: no real leads");
+  });
+
+  it("explains a run that stopped before its report", async () => {
+    await db.query(`INSERT INTO acq_runs (brand_id, job, run_date, started_by, status, error) VALUES ($1, $2, '2026-11-04', 'cron', 'failed', 'self_check: boom')`, [BRAND, DAILY_JOB]);
+    expect((await listReports(db, superadmin, BRAND))[0]).toMatchObject({ status: "failed", error: "self_check: boom", report: null });
+  });
+
+  it("keeps it from every other role, for reading and for changing", async () => {
+    for (const role of ["admin", "reviewer"] as const) {
+      const other = person(role);
+      expect(canViewAcquisition(other)).toBe(false);
+      await expect(listReports(db, other, BRAND)).rejects.toThrow("Only the SuperAdmin");
+      await expect(listRecipients(db, other, BRAND)).rejects.toThrow("Only the SuperAdmin");
+      await expect(addRecipient(db, other, BRAND, "x@example.com")).rejects.toThrow("Only the SuperAdmin");
+      await expect(removeRecipient(db, other, BRAND, superadmin.id)).rejects.toThrow("Only the SuperAdmin");
+      await expect(sendReportTo(db, other, BRAND, superadmin.id, "x@example.com", async () => {})).rejects.toThrow("Only the SuperAdmin");
+    }
+  });
+
+  it("lets the SuperAdmin choose recipients, with the change audited", async () => {
+    expect(await addRecipient(db, superadmin, BRAND, " Team@Example.com ")).toBe("team@example.com");
+    await expect(addRecipient(db, superadmin, BRAND, "team@example.com")).rejects.toThrow("already gets");
+    await expect(addRecipient(db, superadmin, BRAND, "not an email")).rejects.toThrow("valid email");
+    const [saved] = await listRecipients(db, superadmin, BRAND);
+    expect(saved.email).toBe("team@example.com");
+    await removeRecipient(db, superadmin, BRAND, saved.id);
+    expect(await listRecipients(db, superadmin, BRAND)).toEqual([]);
+    const audit = await db.query<{ actor: string; action: string }>(`SELECT actor, action FROM acq_audit_log WHERE record_id = $1 ORDER BY id`, [saved.id]);
+    expect(audit.map((row) => row.action)).toEqual(["INSERT", "UPDATE", "DELETE"]);
+    expect(audit.at(-1)?.actor).toBe(superadmin.id);
+  });
+
+  it("sends one report to any address without changing tomorrow's list", async () => {
+    const run = await finishedRun();
+    const calls: { key: string; to: string[] }[] = [];
+    const send = async (email: Email, to: string[]) => { calls.push({ key: email.idempotencyKey, to }); };
+    await sendReportTo(db, superadmin, BRAND, run.id, "partner@example.com", send);
+    await sendReportTo(db, superadmin, BRAND, run.id, "partner@example.com", send);
+    expect(calls[0].to).toEqual(["partner@example.com"]);
+    expect(calls[0].key).not.toBe(calls[1].key);
+    expect(await listRecipients(db, superadmin, BRAND)).toEqual([]);
+    expect((await one<{ action: string; actor: string }>(`SELECT action, actor FROM acq_audit_log WHERE action = 'SEND_REPORT'`)).actor).toBe(superadmin.id);
+  });
+
+  it("says plainly when email can't do it", async () => {
+    const run = await finishedRun();
+    await expect(sendReportTo(db, superadmin, BRAND, run.id, "a@example.com", null)).rejects.toThrow("isn't set up");
+    await expect(sendReportTo(db, superadmin, BRAND, run.id, "a@example.com", async () => { throw new Error("only your own address"); })).rejects.toThrow("only your own address");
+  });
+});
+
 describe("the report", () => {
   const report = () => buildDailyReport({
     runDate: "2026-11-05", isTest: true, startedAt: new Date("2026-11-05T03:00:00Z"), realLeadCount: 0, leads: SAMPLE_LEADS,
@@ -350,7 +450,14 @@ describe("cron access and configuration", () => {
   });
 
   it("names what's missing", () => {
-    expect(missingConfig({ CRON_SECRET: "x", DATABASE_URL: "y" })).toEqual(["RESEND_API_KEY", "LEAD_EMAIL_FROM", "ACQUISITION_REPORT_EMAIL_TO"]);
+    expect(missingConfig({ CRON_SECRET: "x" })).toEqual(["DATABASE_URL"]);
+    expect(missingConfig({ CRON_SECRET: "x", DATABASE_URL: "y" })).toEqual([]);
+  });
+
+  it("only has an email sender with both a key and a from address", () => {
+    expect(emailSender({ RESEND_API_KEY: "re_x" })).toBeNull();
+    expect(emailSender({ LEAD_EMAIL_FROM: "a@x.co" })).toBeNull();
+    expect(emailSender({ RESEND_API_KEY: "re_x", LEAD_EMAIL_FROM: "a@x.co" })).not.toBeNull();
   });
 
   it("splits recipients and skips the monitor when it isn't set up", async () => {

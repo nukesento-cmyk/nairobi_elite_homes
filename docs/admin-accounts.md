@@ -40,6 +40,7 @@ The main site, NairobiEliteHomes, is unchanged: it's still configured by `NEXT_P
 | **Remove** a blog | Any brand | No | Own brand | No |
 | See and handle **community link requests** | Any brand | Own brand | No | No |
 | Change a brand's **site details** | Any brand | Own brand | No | No |
+| See **acquisition reports** and choose who gets them | Yes | No | No | No |
 | Change their own name, email and password | Yes | Yes | Yes | Password only |
 
 Nobody can delete the SuperAdmin, and the database allows only one. An admin can't remove whoever added them. An email can only belong to one user, across all brands, so adding someone who already has an account in another brand is refused. Brands can't be deleted yet.

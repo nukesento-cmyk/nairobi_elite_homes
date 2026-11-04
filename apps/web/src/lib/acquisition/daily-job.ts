@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { Db } from "@/lib/admin/accounts";
 
 import { checkHostPolicy } from "./policy";
@@ -8,18 +10,29 @@ import { SAMPLE_LEADS } from "./sample-leads";
 export const DAILY_JOB = "daily-acquisition";
 
 export type Email = { subject: string; html: string; text: string; idempotencyKey: string };
+export type SendEmail = (email: Email, to: string[]) => Promise<void>;
 
 export type DailyJobDeps = {
   db: Db;
   brandId: string;
-  sendReport: (email: Email) => Promise<void>;
-  sendAlert: (email: Email) => Promise<void>;
-  /** Tells the outside monitor the report went out. Optional until the monitor is set up. */
+  /** Null until email is set up. The report still appears on the SuperAdmin's dashboard. */
+  sendEmail: SendEmail | null;
+  /** Extra addresses for failure alerts, used even if the database is what's down. */
+  alertTo?: string[];
+  /** Tells the outside monitor the report is ready. Optional until the monitor is set up. */
   pingMonitor?: () => Promise<void>;
   now?: () => Date;
 };
 
 type Check = { name: string; ok: boolean; detail: string };
+
+export async function reportRecipients(db: Db, brandId: string): Promise<string[]> {
+  const rows = await db.query<{ email: string }>(
+    `SELECT email FROM acq_report_recipients WHERE brand_id = $1 ORDER BY email`,
+    [brandId],
+  );
+  return rows.map((row) => row.email);
+}
 
 /** Confirms the safety rules are really in force, so a bad schema shows up in the morning report. */
 async function runSafetyChecks(db: Db, brandId: string): Promise<Check[]> {
@@ -57,6 +70,7 @@ export async function runDailyJob(deps: DailyJobDeps, startedBy: "cron" | "watch
       run: async () => ({ checks: await runSafetyChecks(deps.db, deps.brandId) }),
     },
     {
+      // Once this step is done the report is on the dashboard, whatever happens to email.
       name: "report",
       run: async (outputs) => {
         const { checks } = outputs.self_check as { checks: Check[] };
@@ -64,21 +78,27 @@ export async function runDailyJob(deps: DailyJobDeps, startedBy: "cron" | "watch
       },
     },
     {
-      // The key makes a repeat of this step after a crash send nothing new.
       name: "deliver",
       run: async (outputs) => {
         const report = outputs.report as Report;
-        await deps.sendReport({ ...report, idempotencyKey: `acq-daily-report/${runDate}` });
+        const to = await reportRecipients(deps.db, deps.brandId);
+        if (!deps.sendEmail) return { emailed: false, reason: "email_not_set_up" };
+        if (to.length === 0) return { emailed: false, reason: "no_recipients" };
+
+        // Repeating this after a crash sends nothing new. The recipients are part of the key
+        // because the email service refuses one key with different contents.
+        const list = createHash("sha256").update(to.join(",")).digest("hex").slice(0, 16);
+        await deps.sendEmail({ ...report, idempotencyKey: `acq-daily-report/${runDate}/${list}` }, to);
         await deps.db.query(
           `UPDATE acq_runs SET delivered_at = COALESCE(delivered_at, now())
            WHERE brand_id = $1 AND job = $2 AND run_date = $3::text::date`,
           [deps.brandId, DAILY_JOB, runDate],
         );
-        return { deliveredAt: now().toISOString() };
+        return { emailed: true, recipients: to.length };
       },
     },
     {
-      // Last, so the monitor only hears from a run whose report actually went out.
+      // Last, so the monitor only hears from a run that finished its report.
       name: "monitor",
       run: async () => {
         if (!deps.pingMonitor) return { pinged: false };
@@ -105,15 +125,22 @@ export async function runDailyJob(deps: DailyJobDeps, startedBy: "cron" | "watch
   );
 
   // The watchdog is the last chance today, so someone needs to hear about it now.
-  if (result.status === "failed" && startedBy === "watchdog") {
-    const body = `The ${runDate} acquisition report did not go out. It stopped at "${result.step}": ${result.error}`;
+  if (result.status === "failed" && startedBy === "watchdog" && deps.sendEmail) {
+    const body = `The ${runDate} acquisition report did not finish. It stopped at "${result.step}": ${result.error}`;
     try {
-      await deps.sendAlert({
-        subject: `ALERT: no acquisition report today (${runDate})`,
-        html: `<p>${body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`,
-        text: body,
-        idempotencyKey: `acq-daily-alert/${runDate}`,
-      });
+      const saved = await reportRecipients(deps.db, deps.brandId).catch(() => []);
+      const to = deps.alertTo && deps.alertTo.length > 0 ? deps.alertTo : saved;
+      if (to.length > 0) {
+        await deps.sendEmail(
+          {
+            subject: `ALERT: acquisition report problem (${runDate})`,
+            html: `<p>${body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`,
+            text: body,
+            idempotencyKey: `acq-daily-alert/${runDate}`,
+          },
+          to,
+        );
+      }
     } catch (cause) {
       // Email itself may be what's down. The outside monitor covers that case.
       console.error("Acquisition alert could not be sent:", cause instanceof Error ? cause.message : cause);

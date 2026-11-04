@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 import { Resend } from "resend";
 
-import type { DailyJobDeps, Email } from "./daily-job";
+import type { DailyJobDeps, SendEmail } from "./daily-job";
 
 const MONITOR_TIMEOUT_MS = 10_000;
 
@@ -17,16 +17,19 @@ export function recipients(value: string | undefined): string[] {
   return (value ?? "").split(",").map((address) => address.trim()).filter(Boolean);
 }
 
-/** Names of what's missing, so a misconfigured job says so without exposing any values. */
+/** What the job can't run without. Email is optional: reports always reach the dashboard. */
 export function missingConfig(env: Record<string, string | undefined>): string[] {
-  return ["CRON_SECRET", "DATABASE_URL", "RESEND_API_KEY", "LEAD_EMAIL_FROM", "ACQUISITION_REPORT_EMAIL_TO"].filter((name) => !env[name]);
+  return ["CRON_SECRET", "DATABASE_URL"].filter((name) => !env[name]);
 }
 
-export function resendSender(apiKey: string, from: string, to: string[]): (email: Email) => Promise<void> {
+/** Null until both the key and a sender are set. */
+export function emailSender(env: Record<string, string | undefined>): SendEmail | null {
+  const { RESEND_API_KEY: apiKey, LEAD_EMAIL_FROM: from } = env;
+  if (!apiKey || !from) return null;
   const client = new Resend(apiKey);
-  return async ({ subject, html, text, idempotencyKey }) => {
+  return async ({ subject, html, text, idempotencyKey }, to) => {
     const { error } = await client.emails.send({ from, to, subject, html, text }, { idempotencyKey });
-    if (error) throw new Error(`Email was not accepted: ${error.message}`);
+    if (error) throw new Error(error.message);
   };
 }
 
