@@ -213,8 +213,8 @@ describe("helpers", () => {
 
   it("says what research still needs, and caps spending", () => {
     expect(researchConfig({})).toEqual({ state: "misconfigured", missing: ["ANTHROPIC_API_KEY", "ACQUISITION_HASH_KEY"] });
-    expect(researchConfig({ ANTHROPIC_API_KEY: "k", ACQUISITION_HASH_KEY: "h" })).toMatchObject({ state: "ready", dailySpendCapUsd: 3 });
-    expect(researchConfig({ ANTHROPIC_API_KEY: "k", ACQUISITION_HASH_KEY: "h", ACQUISITION_DAILY_SPEND_USD: "-1" })).toMatchObject({ dailySpendCapUsd: 3 });
+    expect(researchConfig({ ANTHROPIC_API_KEY: "k", ACQUISITION_HASH_KEY: "h" })).toMatchObject({ state: "ready", dailySpendCapUsd: 1 });
+    expect(researchConfig({ ANTHROPIC_API_KEY: "k", ACQUISITION_HASH_KEY: "h", ACQUISITION_DAILY_SPEND_USD: "-1" })).toMatchObject({ dailySpendCapUsd: 1 });
     expect(researchConfig({ ANTHROPIC_API_KEY: "k", ACQUISITION_HASH_KEY: "h", ACQUISITION_DAILY_SPEND_USD: "10" })).toMatchObject({ dailySpendCapUsd: 10 });
   });
 });
@@ -415,14 +415,15 @@ describe("the SuperAdmin's switch", () => {
     expect(await db.query(`SELECT 1 FROM acq_candidates WHERE status = 'queued'`)).toHaveLength(1);
   });
 
-  it("sends a labelled test report while off, keeping leads already found", async () => {
+  it("reports today's leads as real even while off, and keeps them", async () => {
     await allow("sampleheights.example");
     await runResearchSlot(deps(researcher([{ url, title: "x" }], { [url]: good }), { [url]: developerPage }, { now: () => new Date() }), 1);
     await off();
     let email = { subject: "", text: "" };
     await db.query(`INSERT INTO acq_report_recipients (brand_id, email) VALUES ($1, 'team@example.com')`, [BRAND]);
     await runDailyJob({ db, brandId: BRAND, sendEmail: async (sent) => { email = sent; } }, "cron");
-    expect(email.subject).toContain("[TEST, no real leads]");
+    expect(email.subject).not.toContain("TEST");
+    expect(email.text).toContain("Sample Heights Developers Ltd");
     expect(email.text).toContain("OK     Research: Switched off");
     expect(await db.query(`SELECT 1 FROM acq_prospects`)).toHaveLength(1);
   });

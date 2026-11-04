@@ -30,12 +30,12 @@ export type Extraction = z.infer<typeof extractionSchema>;
 export type VerifiedContact = {
   kind: "phone" | "email";
   value: string;
-  contactClass: "organisation_line" | "named_business_role" | "individual_published";
+  contactClass: "organisation_line" | "named_business_role" | "individual_published" | "owner_submitted";
 };
 
 export type VerifiedLead = {
   name: string;
-  prospectType: "organisation";
+  prospectType: "organisation" | "person";
   category: (typeof CATEGORIES)[number];
   role: Extraction["advertiser_role"];
   area: string | null;

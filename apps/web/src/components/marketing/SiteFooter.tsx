@@ -110,7 +110,10 @@ export async function SiteFooter() {
           </div>
         )}
       </div>
-      <div className="mx-auto mt-10 max-w-7xl px-4 text-sm sm:px-6">
+      <div className="mx-auto mt-10 flex max-w-7xl flex-wrap gap-6 px-4 text-sm sm:px-6">
+        <Link href="/list-your-property" className={linkClass}>
+          List your property
+        </Link>
         <Link href="/privacy" className={linkClass}>
           Privacy policy
         </Link>

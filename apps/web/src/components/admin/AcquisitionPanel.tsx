@@ -23,7 +23,11 @@ function LeadCard({ lead }: { lead: LeadRow }) {
         {lead.evidence.map((item) => (
           <li key={`${item.claimType}-${item.quote}`}>
             &ldquo;{item.quote}&rdquo;{" "}
-            <a href={item.url} target="_blank" rel="noopener noreferrer" className="break-all text-copper-400 underline underline-offset-4">source</a>
+            {item.url.startsWith("http") ? (
+              <a href={item.url} target="_blank" rel="noopener noreferrer" className="break-all text-copper-400 underline underline-offset-4">source</a>
+            ) : (
+              <span className="text-bone-200">from the owner form</span>
+            )}
           </li>
         ))}
       </ul>

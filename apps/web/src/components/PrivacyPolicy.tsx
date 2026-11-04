@@ -6,6 +6,8 @@ const SECTIONS: { heading: string; items: string[] }[] = [
       "When an account is created for you: your name and email address, and a scrambled (hashed) version of your password.",
       "When you ask to join the private community: your name, WhatsApp number, and any email address and message you give us.",
       "When you send an enquiry: the contact details and message you enter in the form.",
+      "When you submit a property to list: your name, any company name, phone number and email address, your connection to the property, its details and asking price, and a record of what you agreed to and when.",
+      "Business contact details that companies publish on their own websites, when we research property companies that may want our marketing services.",
     ],
   },
   {
@@ -13,13 +15,14 @@ const SECTIONS: { heading: string; items: string[] }[] = [
     items: [
       "To sign you in and keep you signed in.",
       "To reply to your enquiry or your request to join, including by WhatsApp or email.",
+      "To contact you by phone or email about marketing a property you submitted, and about related property services. You can tell us to stop at any time, on a call or using the contact details below, and we'll keep a record so we don't contact you again.",
       "We don't sell your information, and we don't use your Google account information for advertising.",
     ],
   },
   {
     heading: "Who else handles it",
     items: [
-      "Service providers that run this website for us store or carry this information on our behalf: website hosting, the database, and email delivery. Google handles Google sign-in, and WhatsApp carries any chat you have with us.",
+      "Service providers that run this website for us store or carry this information on our behalf: website hosting, the database, and email delivery. Google handles Google sign-in, and WhatsApp carries any chat you have with us. When we research companies, an AI provider reads public web pages on our behalf. Some of these providers are outside Kenya.",
     ],
   },
   {

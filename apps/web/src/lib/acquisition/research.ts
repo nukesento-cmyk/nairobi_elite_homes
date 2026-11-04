@@ -82,7 +82,15 @@ async function qualifiedToday(db: Db, brandId: string, runDate: string): Promise
  * Stores a verified lead. Exact matches on website attach to the existing prospect, and a
  * similar one goes to a person to resolve. Nothing merges on its own.
  */
-export async function saveLead(deps: Pick<ResearchDeps, "db" | "brandId" | "hashKey">, lead: VerifiedLead, sourceRecordId: string, sourceHost: string, today: string): Promise<string | null> {
+export async function saveLead(
+  deps: Pick<ResearchDeps, "db" | "brandId" | "hashKey">,
+  lead: VerifiedLead,
+  sourceRecordId: string,
+  sourceHost: string,
+  today: string,
+  /** For a lead that didn't come from a website: how it's recognised, and what was said by whom. */
+  origin?: { canonicalKey: string; authorityStatus: string; script: string },
+): Promise<string | null> {
   const { db, brandId, hashKey } = deps;
   const domain = sourceHost.replace(/^www\./, "");
 
@@ -94,11 +102,16 @@ export async function saveLead(deps: Pick<ResearchDeps, "db" | "brandId" | "hash
   const campaign = chooseCampaign(lead);
 
   const [saved] = await db.query<{ id: string; status: string }>(
-    `INSERT INTO acq_prospects (brand_id, display_name, prospect_type, category, owner_rep_class, campaign, score, score_breakdown, opening_script, canonical_key, updated_by)
-     VALUES ($1, $2, 'organisation', $3, $4, $5, $6, $7::text::jsonb, $8, $9, 'research-job')
+    `INSERT INTO acq_prospects (brand_id, display_name, prospect_type, category, owner_rep_class, campaign, score, score_breakdown, opening_script, canonical_key, authority_status, updated_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::text::jsonb, $9, $10, $11, 'research-job')
      ON CONFLICT (brand_id, canonical_key) DO UPDATE SET score = GREATEST(acq_prospects.score, EXCLUDED.score), updated_by = 'research-job'
      RETURNING id, status`,
-    [brandId, lead.name, lead.category, lead.role, campaign, score, JSON.stringify(breakdown), openingScript(lead, campaign, domain), `org:${domain}`],
+    [
+      brandId, lead.name, lead.prospectType, lead.category, lead.role, campaign, score, JSON.stringify(breakdown),
+      origin?.script ?? openingScript(lead, campaign, domain),
+      origin?.canonicalKey ?? `org:${domain}`,
+      origin?.authorityStatus ?? "unverified",
+    ],
   );
   // Someone asked not to be contacted, so nothing new is added to their record.
   if (saved.status === "do_not_contact") return null;

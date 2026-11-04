@@ -22,7 +22,7 @@ export function missingConfig(env: Record<string, string | undefined>): string[]
   return ["CRON_SECRET", "DATABASE_URL"].filter((name) => !env[name]);
 }
 
-const DEFAULT_DAILY_SPEND_USD = 3;
+const DEFAULT_DAILY_SPEND_USD = 1;
 
 export type ResearchConfig =
   | { state: "misconfigured"; missing: string[] }

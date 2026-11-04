@@ -24,7 +24,7 @@ Each slot searches the web, then reads pages only from domains a person has allo
 **To run it:**
 
 1. Set `ANTHROPIC_API_KEY`, and `ACQUISITION_HASH_KEY` to a random value of 32 or more characters, then deploy. Never change the hash key afterwards, or opt-outs stop matching.
-2. Optionally set `ACQUISITION_DAILY_SPEND_USD`. The default cap is 3 dollars a day across search and Claude.
+2. Optionally set `ACQUISITION_DAILY_SPEND_USD`. The default cap is 1 dollar a day across search and Claude. Research uses Claude Haiku 5.5, chosen for cost: an estimated 5 dollars a month at 30 pages a day. Real spend is on each run in `acq_runs`.
 3. Sign in as the SuperAdmin and use the switch under Acquisition.
 
 **Switching off** stops new runs at once, and a run in progress stops at its next page. It needs no deploy, and leads already found stay on the dashboard. Each change goes in the audit log.
@@ -44,6 +44,18 @@ WHERE contact_class = 'organisation_line';
 ```
 
 Google Places isn't used yet, and duplicates are matched on website, contact and exact name only.
+
+## Owner form
+
+Owners and their representatives can submit a property at `/list-your-property`. This costs nothing to run, and doesn't depend on research or Claude. It needs `DATABASE_URL` and `ACQUISITION_HASH_KEY`.
+
+- A submission appears under Leads on the dashboard, for approval. The owner's details are saved as `owner_submitted`, the one class callable today.
+- Nothing is treated as proof of ownership. The person's role is recorded as their own statement, and documents are checked at onboarding.
+- `acq_consents` records the exact wording each person agreed to, its version and when. Change the wording only by adding a new `OWNER_CONSENT_VERSION`.
+- Someone on the suppression list who submits sees the normal thank-you, but no lead is created. Recording fresh consent for them is still to be built.
+- Set `TURNSTILE_SECRET_KEY` and `NEXT_PUBLIC_TURNSTILE_SITE_KEY` to add the security check. Without them, only a hidden trap field and a rate limit stop automated submissions.
+
+**Have an advocate review the consent wording and the privacy policy before relying on this.**
 
 ## Setup
 

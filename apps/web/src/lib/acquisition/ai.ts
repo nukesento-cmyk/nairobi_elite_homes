@@ -1,16 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 
 import { extractionSchema, type Extraction } from "./verify";
 
-const MODEL = "claude-opus-5-5";
-const FALLBACK_BETA = "server-side-fallback-2026-07-01";
+// The owner chose this model for cost. Code still checks all it returns against the page.
+const MODEL = "claude-haiku-5-5";
 const MAX_PAGE_CHARS = 60_000;
 const MAX_CONTINUATIONS = 3;
 
-// Dollars. Cache reads aren't used here, so these two rates and the search fee cover every call.
-const INPUT_PER_TOKEN = 4 / 1_000_000;
-const OUTPUT_PER_TOKEN = 20 / 1_000_000;
+// Dollars, for prompts up to 100,000 tokens. Pages are cut well below that. Cache reads aren't
+// used here, so these two rates and the search fee cover every call.
+const INPUT_PER_TOKEN = 0.1 / 1_000_000;
+const OUTPUT_PER_TOKEN = 0.5 / 1_000_000;
 const PER_SEARCH = 0.01;
 
 export type SearchResult = { url: string; title: string };
@@ -47,7 +48,8 @@ export function createClaudeResearcher(apiKey: string): Researcher {
     async search(query, blockedDomains) {
       const tools: Anthropic.ToolUnion[] = [
         {
-          type: "web_search_20260209",
+          // The basic version: results come straight back, with no code execution step.
+          type: "web_search_20250305",
           name: "web_search",
           max_uses: 2,
           ...(blockedDomains.length > 0 ? { blocked_domains: blockedDomains } : {}),
@@ -82,13 +84,11 @@ export function createClaudeResearcher(apiKey: string): Researcher {
     },
 
     async extract(url, pageText) {
-      const response = await client.beta.messages.parse({
+      const response = await client.messages.parse({
         model: MODEL,
         max_tokens: 16000,
-        betas: [FALLBACK_BETA],
-        fallbacks: "default",
         system: EXTRACT_INSTRUCTIONS,
-        output_config: { effort: "medium", format: betaZodOutputFormat(extractionSchema) },
+        output_config: { effort: "medium", format: zodOutputFormat(extractionSchema) },
         messages: [
           {
             role: "user",
@@ -96,7 +96,7 @@ export function createClaudeResearcher(apiKey: string): Researcher {
           },
         ],
       });
-      const costUsd = costOf(response.usage as Usage);
+      const costUsd = costOf(response.usage);
       // A refusal or unparseable reply counts as nothing found, never as a partial answer.
       if (response.stop_reason === "refusal") return { extraction: null, costUsd };
       return { extraction: (response.parsed_output as Extraction | null) ?? null, costUsd };

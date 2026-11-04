@@ -459,6 +459,17 @@ CREATE TABLE IF NOT EXISTS acq_settings (
 INSERT INTO acq_settings (brand_id, updated_by) VALUES ('00000000-0000-4000-8000-000000000001', 'system')
 ON CONFLICT (brand_id) DO NOTHING;
 
+-- What each person agreed to, in the exact words they saw, and when. Keyed hashes only.
+CREATE TABLE IF NOT EXISTS acq_consents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL REFERENCES brands (id) ON DELETE RESTRICT,
+  value_hash text NOT NULL,
+  wording_version text NOT NULL,
+  wording text NOT NULL,
+  given_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS acq_consents_hash ON acq_consents (value_hash);
+
 -- Pages discovery found. A page on a domain nobody has approved waits here, unfetched.
 CREATE TABLE IF NOT EXISTS acq_candidates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -508,6 +519,8 @@ END $$;
 CREATE OR REPLACE TRIGGER acq_interactions_append_only BEFORE UPDATE OR DELETE ON acq_interactions
   FOR EACH ROW EXECUTE FUNCTION acq_append_only();
 CREATE OR REPLACE TRIGGER acq_source_records_append_only BEFORE UPDATE OR DELETE ON acq_source_records
+  FOR EACH ROW EXECUTE FUNCTION acq_append_only();
+CREATE OR REPLACE TRIGGER acq_consents_append_only BEFORE UPDATE OR DELETE ON acq_consents
   FOR EACH ROW EXECUTE FUNCTION acq_append_only();
 
 -- TG_ARGV[0] lists columns kept out of the log, so it never holds a name or contact detail.

@@ -54,6 +54,11 @@ async function loadTodaysResearch(db: Db, brandId: string, runDate: string): Pro
     [brandId, runDate],
   );
 
+  const [{ owners }] = await db.query<{ owners: string }>(
+    `SELECT count(*)::text AS owners FROM acq_prospects p WHERE p.brand_id = $1 AND p.canonical_key LIKE 'phone:%' AND ${today}`,
+    [brandId, runDate],
+  );
+
   const [stages] = await db.query<Record<"found" | "no_lead" | "people" | "refused" | "qualified" | "domains", string>>(
     `SELECT
        count(*) FILTER (WHERE ((discovered_at AT TIME ZONE 'UTC') + interval '3 hours')::date = $2::text::date)::text AS found,
@@ -78,6 +83,7 @@ async function loadTodaysResearch(db: Db, brandId: string, runDate: string): Pro
       sourceUrl: row.url,
     })),
     funnel: [
+      { label: "owner form submissions", count: Number(owners) },
       { label: "pages found", count: Number(stages.found) },
       { label: "pages with no lead", count: Number(stages.no_lead) },
       { label: "pages about private individuals, skipped and not kept", count: Number(stages.people) },
@@ -141,10 +147,11 @@ export async function runDailyJob(deps: DailyJobDeps, startedBy: "cron" | "watch
       name: "report",
       run: async (outputs) => {
         const { checks, researchOn } = outputs.self_check as { checks: Check[]; researchOn: boolean };
-        if (!researchOn) {
+        const { leads, count, funnel } = await loadTodaysResearch(deps.db, deps.brandId, runDate);
+        // Owner submissions are real leads, so they get a real report even with research off.
+        if (!researchOn && count === 0) {
           return buildDailyReport({ runDate, isTest: true, startedAt: now(), realLeadCount: 0, leads: SAMPLE_LEADS, checks });
         }
-        const { leads, count, funnel } = await loadTodaysResearch(deps.db, deps.brandId, runDate);
         return buildDailyReport({ runDate, isTest: false, startedAt: now(), realLeadCount: count, leads, checks, funnel });
       },
     },
