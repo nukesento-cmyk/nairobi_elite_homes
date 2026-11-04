@@ -80,7 +80,9 @@ Once a lead has expressed interest, the SuperAdmin presses **Start onboarding**.
 6. **Send for final approval**, with the listing details and who owns the photos. The property goes to Approvals as pending, at the agreed price.
 7. **An admin who didn't verify the documents approves it** under Approvals. The database refuses the person who verified them, so this needs a second person.
 
-**Storage:** documents are encrypted with AES-256-GCM using `ACQUISITION_DOCUMENT_KEY`, then kept in a private Blob store through `ACQUISITION_BLOB_TOKEN`. Never change the key, or existing documents can't be opened. Keep a copy somewhere safe, because losing it loses the documents.
+**Creating the store:** in the Vercel dashboard, open Storage, create a Blob store with Private access, and connect it to this project with the custom prefix `ACQUISITION_BLOB`. Don't use the default prefix, because it would clash with `BLOB_READ_WRITE_TOKEN`, which the public photo store uses. Redeploy afterwards.
+
+**Storage:** documents are encrypted with AES-256-GCM using `ACQUISITION_DOCUMENT_KEY`, then kept in a private Blob store through `ACQUISITION_BLOB_READ_WRITE_TOKEN`. Never change the key, or existing documents can't be opened. Keep a copy somewhere safe, because losing it loses the documents.
 
 **Retention:** the morning job deletes documents past their date: 90 days for most, 3 years for signed marketing authorities. Counsel should confirm these periods.
 
