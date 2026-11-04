@@ -39,7 +39,10 @@ function domainsToCheck(host: string): string[] {
 export async function checkSourcePolicy(db: Db, brandId: string, rawUrl: string): Promise<PolicyDecision> {
   const host = publicHost(rawUrl);
   if (!host) return { allowed: false, verdict: "invalid", domain: null, policyId: null };
+  return checkHostPolicy(db, brandId, host);
+}
 
+export async function checkHostPolicy(db: Db, brandId: string, host: string): Promise<PolicyDecision> {
   const candidates = domainsToCheck(host);
   const placeholders = candidates.map((_, i) => `$${i + 2}`).join(", ");
   const rows = await db.query<{ id: string; domain: string; verdict: Verdict }>(

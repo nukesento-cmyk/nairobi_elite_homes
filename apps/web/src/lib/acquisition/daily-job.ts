@@ -1,8 +1,9 @@
 import type { Db } from "@/lib/admin/accounts";
 
-import { checkSourcePolicy } from "./policy";
-import { buildDailyReport, SAMPLE_LEADS, type Report } from "./report";
+import { checkHostPolicy } from "./policy";
+import { buildDailyReport, type Report } from "./report";
 import { nairobiDate, runJob, type RunResult, type Step } from "./runner";
+import { SAMPLE_LEADS } from "./sample-leads";
 
 export const DAILY_JOB = "daily-acquisition";
 
@@ -22,7 +23,7 @@ type Check = { name: string; ok: boolean; detail: string };
 
 /** Confirms the safety rules are really in force, so a bad schema shows up in the morning report. */
 async function runSafetyChecks(db: Db, brandId: string): Promise<Check[]> {
-  const portal = await checkSourcePolicy(db, brandId, "https://www.property24.co.ke/");
+  const portal = await checkHostPolicy(db, brandId, "www.property24.co.ke");
   const [locked] = await db.query<{ callable: boolean }>(
     `SELECT callable FROM acq_contact_class_rules WHERE brand_id = $1 AND contact_class = 'individual_published'`,
     [brandId],

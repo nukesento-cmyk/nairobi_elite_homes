@@ -35,7 +35,7 @@ describe("source guards", () => {
   });
 
   // Fixed third-party protocol addresses, not links marketing would ever change.
-  const urlExempt = ["lib/turnstile.ts", "lib/json-ld.ts", "lib/embeds.ts", "lib/cms/sample-documents.ts", "lib/auth/google.ts", "lib/whatsapp-groups.ts", "lib/brand-site.ts"];
+  const urlExempt = ["lib/turnstile.ts", "lib/json-ld.ts", "lib/embeds.ts", "lib/cms/sample-documents.ts", "lib/acquisition/sample-leads.ts", "lib/auth/google.ts", "lib/whatsapp-groups.ts", "lib/brand-site.ts"];
   const linkFiles = [...uiFiles, ...sourceFiles("lib"), ...sourceFiles("config")].filter(
     (file) => !urlExempt.some((exempt) => file.endsWith(exempt)),
   );

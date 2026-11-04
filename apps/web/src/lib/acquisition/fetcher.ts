@@ -6,7 +6,8 @@ import { checkSourcePolicy, type Verdict } from "./policy";
 import { robotsAllows } from "./robots";
 
 export const RESEARCH_AGENT = "NairobiEliteResearch";
-const USER_AGENT = `${RESEARCH_AGENT}/1.0 (+https://nairobi-elite-homes.vercel.app)`;
+// Says who's asking and where to find out more, so a site owner can object.
+const USER_AGENT = `${RESEARCH_AGENT}/1.0${process.env.NEXT_PUBLIC_SITE_URL ? ` (+${process.env.NEXT_PUBLIC_SITE_URL})` : ""}`;
 
 const MAX_REDIRECTS = 3;
 const MAX_BYTES = 2_000_000;

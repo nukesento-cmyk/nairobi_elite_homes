@@ -10,9 +10,10 @@ import { isAuthorizedCron, missingConfig, monitorPinger, recipients } from "./cr
 import { DAILY_JOB, runDailyJob, type Email } from "./daily-job";
 import { fetchPage, htmlToText } from "./fetcher";
 import { checkSourcePolicy, publicHost } from "./policy";
-import { buildDailyReport, SAMPLE_LEADS } from "./report";
+import { buildDailyReport } from "./report";
 import { robotsAllows } from "./robots";
 import { nairobiDate, runJob, type Step } from "./runner";
+import { SAMPLE_LEADS } from "./sample-leads";
 
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 60_000 });
 
