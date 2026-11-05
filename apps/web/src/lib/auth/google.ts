@@ -18,7 +18,9 @@ export type OAuthAttempt = {
   base?: string;
 };
 
+/** False hides the button everywhere and refuses new attempts. GOOGLE_SIGN_IN_OFF mutes it with the keys left in place. */
 export function isGoogleConfigured(): boolean {
+  if (process.env.GOOGLE_SIGN_IN_OFF === "true") return false;
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 

@@ -71,6 +71,8 @@ Money on the dashboard is called bread. The headline figure is an estimate: requ
 - Someone added under **Users** can't use the staff login: it says their email and password don't match. Add your team under Staff accounts instead, with a role such as Caller.
 - **Staff** sign in at `/admin`, with Google or a password. Google only works for an email someone has already added as staff.
 
+To mute Google sign-in without losing its keys, set `GOOGLE_SIGN_IN_OFF` to `true` and redeploy. Remove it and redeploy to bring the button back. While it's muted, accounts with no password can't sign in, and nobody can create a free account with Google.
+
 To turn on Google sign-in:
 
 1. In Google Cloud Console, create an OAuth client of type "Web application". Google requires 2-step verification on the account first.
