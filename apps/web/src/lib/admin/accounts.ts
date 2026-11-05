@@ -181,6 +181,11 @@ export async function createAdmin(
     return { admin, temporaryPassword };
   } catch (error) {
     if (isDuplicate(error)) throw new AdminError("An account with that email already exists.");
+    // The code offers a role the database doesn't allow yet: db/schema.sql hasn't been applied.
+    if ((error as { code?: string }).code === "23514") {
+      console.error("Creating an account broke a database rule. Has db/schema.sql been applied?");
+      throw new AdminError("The database isn't ready for this role yet, so nothing was saved. Apply the database update, then try again.");
+    }
     throw error;
   }
 }

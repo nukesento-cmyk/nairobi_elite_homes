@@ -347,6 +347,13 @@ describe("a caller", () => {
     await pg.exec(`DELETE FROM admins WHERE email = 'new.caller@example.com'`);
   });
 
+  it("explains itself, rather than crashing the page, if the database doesn't allow the role yet", async () => {
+    const outdated: Db = { query: async () => { throw Object.assign(new Error("violates check constraint"), { code: "23514" }); } };
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(createAdmin(outdated, me, { email: "e@example.com", name: "E Caller", role: "caller", brandId: BRAND })).rejects.toThrow("isn't ready for this role");
+    quiet.mockRestore();
+  });
+
   it("is managed by the brand's admins, like a reviewer, and can't touch anyone", () => {
     const admin = { id: "a", role: "admin", brandId: BRAND } as Admin;
     expect(canManage(admin, { role: "caller", brandId: BRAND, createdBy: "someone" })).toBe(true);
