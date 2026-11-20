@@ -293,7 +293,7 @@ export function PropertyManager({ properties, uploads }: { properties: PropertyR
   );
 }
 
-function PostForm({ post, uploads }: { post?: Post; uploads: boolean }) {
+function PostForm({ post, uploads, publishes }: { post?: Post; uploads: boolean; publishes: boolean }) {
   const { state, pending, form } = useSafeForm(savePostAction);
   return (
     <form {...form} className="space-y-4">
@@ -317,40 +317,75 @@ function PostForm({ post, uploads }: { post?: Post; uploads: boolean }) {
       </label>
       <label className="flex items-center gap-2 text-sm text-bone-50">
         <input name="submit" type="checkbox" defaultChecked={post ? post.reviewStatus !== "draft" : true} className="size-4" />
-        Send for approval (leave unticked to keep as a draft)
+        {publishes
+          ? "Publish on the site (leave unticked to keep as a draft)"
+          : "Send for approval (leave unticked to keep as a draft)"}
       </label>
       <button type="submit" disabled={pending} className={button}>
         {post ? "Save post" : "Add post"}
       </button>
       {post?.reviewStatus === "approved" && (
-        <p className="text-sm text-bone-200">Saving takes this off the site until it&apos;s approved again.</p>
+        <p className="text-sm text-bone-200">
+          {publishes
+            ? "Saving updates the live post straight away. Unticking Publish takes it off the site."
+            : "Saving takes this off the site until it's approved again."}
+        </p>
       )}
       <Result state={state} />
     </form>
   );
 }
 
-export function PostManager({ posts, uploads }: { posts: Post[]; uploads: boolean }) {
+/**
+ * Everyone who sees blog posts can edit them. Only reviewers add new ones, and only those who can
+ * remove content get a Delete button. Admins and the SuperAdmin approve as they save.
+ */
+export function PostManager({
+  posts,
+  uploads,
+  canAdd,
+  canDelete,
+  publishes,
+  brandNames,
+}: {
+  posts: Post[];
+  uploads: boolean;
+  canAdd: boolean;
+  canDelete: boolean;
+  publishes: boolean;
+  /** Shown to the SuperAdmin, who sees every brand's posts. */
+  brandNames?: Record<string, string>;
+}) {
   return (
     <section aria-label="Blog">
-      <PageHeader title="Blog" description="Posts wait for approval before they appear on the site." />
-      <details className="mb-6 rounded-xl border border-border bg-forest-900/30 px-5 py-3">
-        <summary>Add a post</summary>
-        <div className="mt-5"><PostForm uploads={uploads} /></div>
-      </details>
-      {posts.length === 0 && <EmptyState title="No posts yet">Write the first one above.</EmptyState>}
+      <PageHeader
+        title="Blog"
+        description={publishes ? "Your edits go live as you save them." : "Posts wait for approval before they appear on the site."}
+      />
+      {canAdd && (
+        <details className="mb-6 rounded-xl border border-border bg-forest-900/30 px-5 py-3">
+          <summary>Add a post</summary>
+          <div className="mt-5"><PostForm uploads={uploads} publishes={publishes} /></div>
+        </details>
+      )}
+      {posts.length === 0 && (
+        <EmptyState title="No posts yet">{canAdd ? "Write the first one above." : "Reviewers write them."}</EmptyState>
+      )}
       <ul className="space-y-3">
         {posts.map((post) => (
           <li key={post.id} data-post={post.title} className="rounded-xl border border-border bg-forest-900/30 p-5">
             <p className="text-lg text-bone-50">{post.title}</p>
+            {brandNames && <p className="text-sm text-bone-200">{brandNames[post.brandId]}</p>}
             <ReviewBadge status={post.reviewStatus} note={post.reviewNote} />
             <details className="mt-4">
               <summary>Edit</summary>
-              <div className="mt-4"><PostForm post={post} uploads={uploads} /></div>
+              <div className="mt-4"><PostForm post={post} uploads={uploads} publishes={publishes} /></div>
             </details>
-            <div className="mt-4">
-              <DeleteItem id={post.id} name={post.title} action={deletePostAction} />
-            </div>
+            {canDelete && (
+              <div className="mt-4">
+                <DeleteItem id={post.id} name={post.title} action={deletePostAction} />
+              </div>
+            )}
           </li>
         ))}
       </ul>

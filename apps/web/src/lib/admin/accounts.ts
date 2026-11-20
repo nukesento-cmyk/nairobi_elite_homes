@@ -107,9 +107,17 @@ export function canManageProperties(actor: Pick<Admin, "role">): boolean {
   return actor.role === "reviewer" || actor.role === "admin";
 }
 
-/** Only reviewers write blogs. */
+/** Only reviewers write new blogs. */
 export function canWritePosts(actor: Pick<Admin, "role">): boolean {
   return actor.role === "reviewer";
+}
+
+/**
+ * Every staff member who sees blog posts can edit them: reviewers, who write them, and admins
+ * and the SuperAdmin, who approve them. Each stays inside the brands they can see.
+ */
+export function canEditPosts(actor: Pick<Admin, "role">): boolean {
+  return canWritePosts(actor) || canReview(actor);
 }
 
 /** Approving reviewers' work, and handling requests for the community link. */

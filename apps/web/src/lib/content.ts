@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   AdminError,
   brandScope,
+  canEditPosts,
   canManageProperties,
   canRemoveContent,
   canReview,
@@ -94,6 +95,10 @@ function requirePropertyEditor(actor: Admin): void {
 
 function requireWriter(actor: Admin): void {
   if (!canWritePosts(actor)) throw new AdminError("Only reviewers can write blogs.");
+}
+
+function requirePostEditor(actor: Admin): void {
+  if (!canEditPosts(actor)) throw new AdminError("You can't edit blogs.");
 }
 
 /** Added or edited by someone who can approve it, it needs no second person. */
@@ -343,7 +348,7 @@ const POST_COLUMNS = `id, brand_id AS "brandId", slug, title, excerpt, body, cov
   published_at AS "publishedAt", updated_at AS "updatedAt"`;
 
 export async function listPosts(db: Db, actor: Admin): Promise<Post[]> {
-  requireWriter(actor);
+  requirePostEditor(actor);
   return db.query<Post>(`SELECT ${POST_COLUMNS} FROM posts WHERE ${inScope("$1")} ORDER BY created_at DESC`, [brandScope(actor)]);
 }
 
@@ -358,15 +363,24 @@ export async function createPost(db: Db, actor: Admin, input: unknown): Promise<
   return row;
 }
 
+/**
+ * A reviewer's edit goes back for approval, so approval can't be sidestepped by changing a post
+ * after it's given. An admin's or the SuperAdmin's edit is approved by the person making it, so
+ * it goes live at once, keeping the date it was first published.
+ */
 export async function updatePost(db: Db, actor: Admin, id: string, input: unknown): Promise<void> {
-  requireWriter(actor);
+  requirePostEditor(actor);
   assertId(id);
   const post = parse(postSchema, input);
+  const status = !post.submit ? "draft" : reviewStatusFor(actor);
   const rows = await db.query(
-    `UPDATE posts SET title=$1, excerpt=$2, body=$3, cover_url=$4, cover_alt=$5, review_status=$6,
-       review_note=NULL, published_at=NULL, updated_at=now()
+    `UPDATE posts SET title=$1, excerpt=$2, body=$3, cover_url=$4, cover_alt=$5, review_status=$6::text,
+       review_note=NULL,
+       published_at = CASE WHEN $6::text = 'approved'
+         THEN COALESCE(CASE WHEN review_status = 'approved' THEN published_at END, now()) END,
+       updated_at=now()
      WHERE id=$7 AND ${inScope("$8")} RETURNING id`,
-    [post.title, post.excerpt, post.body, post.coverUrl, post.coverAlt, post.submit ? "pending" : "draft", id, brandScope(actor)],
+    [post.title, post.excerpt, post.body, post.coverUrl, post.coverAlt, status, id, brandScope(actor)],
   );
   if (rows.length === 0) throw new AdminError("That item no longer exists.");
 }

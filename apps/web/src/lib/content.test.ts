@@ -29,6 +29,7 @@ import {
   listProperties,
   approveItem,
   countOffMarket,
+  listPosts,
   liveContent,
   publicProperties,
   publicProperty,
@@ -230,6 +231,49 @@ describe("blog", () => {
     await approveItem(db, staff("admin"), "post", draft.id);
     expect((await publishedPost(db, draft.slug))?.publishedAt).toBeTruthy();
     expect((await publishedPosts(db)).length).toBe(1);
+  });
+
+  it("lets every staff member who sees posts edit them, inside their own brand", async () => {
+    const created = await createPost(db, reviewer, post);
+    await approveItem(db, staff("admin"), "post", created.id);
+    const firstPublished = (await publishedPost(db, created.slug))?.publishedAt;
+
+    // An admin's edit is approved as it's saved, and keeps the original publish date.
+    await updatePost(db, staff("admin"), created.id, { ...post, title: "Buying land in Karen" });
+    const edited = await publishedPost(db, created.slug);
+    expect(edited?.title).toBe("Buying land in Karen");
+    expect(edited?.publishedAt).toEqual(firstPublished);
+    expect((await reviewQueue(db, staff("admin"))).posts).toEqual([]);
+
+    await updatePost(db, staff("superadmin"), created.id, { ...post, title: "Buying land in Runda" });
+    expect((await publishedPost(db, created.slug))?.title).toBe("Buying land in Runda");
+
+    // Unticking publish takes it off the site, for admins as for reviewers.
+    await updatePost(db, staff("admin"), created.id, { ...post, submit: false });
+    expect(await publishedPost(db, created.slug)).toBeNull();
+
+    // Publishing a reviewer's pending post from the editor approves it with a fresh date.
+    await updatePost(db, reviewer, created.id, post);
+    expect((await reviewQueue(db, staff("admin"))).posts.length).toBe(1);
+    await updatePost(db, staff("admin"), created.id, post);
+    expect((await publishedPost(db, created.slug))?.publishedAt).toBeTruthy();
+
+    expect((await listPosts(db, staff("admin"))).length).toBe(1);
+    expect((await listPosts(db, staff("superadmin"))).length).toBe(1);
+
+    // Staff who never see posts can't edit them, and other brands can't reach them.
+    await expect(listPosts(db, staff("caller"))).rejects.toThrow(AdminError);
+    await expect(updatePost(db, staff("caller"), created.id, post)).rejects.toThrow(AdminError);
+    const otherBrandAdmin = { ...staff("admin"), brandId: "00000000-0000-4000-8000-0000000000ff" };
+    await expect(updatePost(db, otherBrandAdmin, created.id, post)).rejects.toThrow("That item no longer exists.");
+  });
+
+  it("still sends a reviewer's edit of a live post back for approval", async () => {
+    const created = await createPost(db, reviewer, post);
+    await approveItem(db, staff("admin"), "post", created.id);
+    await updatePost(db, reviewer, created.id, { ...post, title: "Changed" });
+    expect(await publishedPost(db, created.slug)).toBeNull();
+    expect((await reviewQueue(db, staff("admin"))).posts.length).toBe(1);
   });
 
   it("stores text exactly, so markup is never treated as code", async () => {

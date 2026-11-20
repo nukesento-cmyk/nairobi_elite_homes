@@ -96,7 +96,8 @@ export async function savePostAction(_: ActionState, form: FormData): Promise<Ac
     const id = value(form, "id");
     if (id) {
       await updatePost(db, actor, id, postInput(form));
-      return form.get("submit") === "on" ? "Saved and sent for approval." : "Draft saved.";
+      if (form.get("submit") !== "on") return "Draft saved.";
+      return canReview(actor) ? "Saved. It's live." : "Saved and sent for approval.";
     }
     await createPost(db, actor, postInput(form));
     return form.get("submit") === "on" ? "Sent for approval." : "Draft saved.";

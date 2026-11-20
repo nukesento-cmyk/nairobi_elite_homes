@@ -35,6 +35,7 @@ import {
   canManageUsers,
   canRemoveContent,
   canReview,
+  canEditPosts,
   canWritePosts,
   listAdmins,
   manageableRoles,
@@ -108,7 +109,7 @@ async function Dashboard() {
   const accounts = await listAdmins(db, me);
   const [properties, posts] = await Promise.all([
     canManageProperties(me) ? listProperties(db, me) : [],
-    canWritePosts(me) ? listPosts(db, me) : [],
+    canEditPosts(me) ? listPosts(db, me) : [],
   ]);
   const isSuperadmin = me.role === "superadmin";
   // The SuperAdmin works across brands, so has to say which. Nobody else ever gets the choice.
@@ -199,7 +200,23 @@ async function Dashboard() {
 
   const content: ShellItem[] = [
     ...(canManageProperties(me) ? [{ id: "properties", label: "Properties", count: properties.length, content: <PropertyManager properties={properties} uploads={uploads} /> }] : []),
-    ...(canWritePosts(me) ? [{ id: "blog", label: "Blog", count: posts.length, content: <PostManager posts={posts} uploads={uploads} /> }] : []),
+    ...(canEditPosts(me)
+      ? [{
+          id: "blog",
+          label: "Blog",
+          count: posts.length,
+          content: (
+            <PostManager
+              posts={posts}
+              uploads={uploads}
+              canAdd={canWritePosts(me)}
+              canDelete={canRemoveContent(me)}
+              publishes={canReview(me)}
+              brandNames={isSuperadmin ? Object.fromEntries(brands.map((brand) => [brand.id, brand.name])) : undefined}
+            />
+          ),
+        }]
+      : []),
     ...(canReview(me)
       ? [{
           id: "approvals",

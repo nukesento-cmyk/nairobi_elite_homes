@@ -34,7 +34,8 @@ The main site, NairobiEliteHomes, is unchanged: it's still configured by `NEXT_P
 | Create, delete and reset **users** | Any brand | Own brand | Own brand | No | No |
 | Add and remove **WhatsApp groups** | Any brand | Own brand | No | No | No |
 | Add and edit **properties** | No | Own brand, live at once | Own brand, needs approval | No | No |
-| Write **blogs** | No | No | Own brand | No | No |
+| Write new **blogs** | No | No | Own brand | No | No |
+| Edit **blogs** | Any brand, live at once | Own brand, live at once | Own brand, needs approval | No | No |
 | **Approve** or send back properties and blogs | Any brand | Own brand | No | No | No |
 | **Remove** a property | Any brand | Own brand | Own brand | No | No |
 | **Remove** a blog | Any brand | No | Own brand | No | No |
@@ -49,7 +50,9 @@ Nobody can delete the SuperAdmin, and the database allows only one. An admin can
 
 ## Approval
 
-Nothing a reviewer adds appears on the site until an admin or the SuperAdmin approves it. Sending it back includes a note, which the reviewer sees. Editing something already live takes it off the site until it's approved again, so approval can't be sidestepped by changing it afterwards.
+Nothing a reviewer adds appears on the site until an admin or the SuperAdmin approves it. Sending it back includes a note, which the reviewer sees. A reviewer editing something already live takes it off the site until it's approved again, so approval can't be sidestepped by changing it afterwards.
+
+Admins and the SuperAdmin can edit any blog post they can see, under "Blog" at `/admin`. Their edits are approved as they save, so a live post stays live and keeps its original publish date. Unticking "Publish on the site" takes a post down as a draft. Only reviewers add new posts.
 
 ## The private community
 
